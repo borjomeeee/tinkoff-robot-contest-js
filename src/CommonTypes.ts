@@ -1,5 +1,10 @@
 import { Big } from "big.js";
 
+export enum OrderDirection {
+  BUY = "buy",
+  SELL = "sell",
+}
+
 export interface Quotation {
   units: string;
   nano: number;

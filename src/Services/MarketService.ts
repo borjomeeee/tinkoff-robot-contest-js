@@ -1,56 +1,34 @@
-import { useServices } from ".";
-import {
-  Candle,
-  CandleInterval,
-  HistoricalCandle,
-  Instrument,
-  SubscriptionCandleInverval,
-} from "../CommonTypes";
+import { Candle, CandleInterval, HistoricalCandle } from "../CommonTypes";
 import { Logger } from "../Logger";
-import { TinkoffApiService } from "../Service";
 import { TimestampUtils } from "../Timestamp";
+import { TinkoffApiClient } from "../TinkoffApiClient";
+import { FOUR_HOURS_IN_MS, HOUR_IN_MS, QuotationUtils } from "../Utils";
 import {
-  DAY_IN_MS,
-  FOUR_HOURS_IN_MS,
-  HOUR_IN_MS,
-  QuotationUtils,
-} from "../Utils";
+  IMarketService,
+  CandleSupscription,
+  CandleSubscriptionOptions,
+  GetLastCandlesOptions,
+  GetCandlesOptions,
+} from "./Types";
 
-type CandleSupscription = (candle: Candle) => any;
-
-interface CandleSubscriptionOptions {
-  instrument: Instrument;
-  interval: SubscriptionCandleInverval;
-}
-interface MarketServiceCandleSubscription {
+interface ITinkoffMarketServiceCandleSubscription {
   sub: CandleSupscription;
   options: CandleSubscriptionOptions;
 }
 
-interface GetLastCandlesOptions {
-  instrument: Instrument;
-  interval: CandleInterval;
-
-  amount: number;
-  expirationDate: Date;
-}
-
-interface GetCandlesOptions {
-  instrument: Instrument;
-  interval: CandleInterval;
-
-  from: Date;
-  to: Date;
-}
-
-let subscriptions: MarketServiceCandleSubscription[] = [];
+let subscriptions: ITinkoffMarketServiceCandleSubscription[] = [];
 let marketDataStream: any | undefined = undefined;
 
-export class MarketService extends TinkoffApiService {
-  TAG = "MarketService";
+export class TinkoffMarketService implements IMarketService {
+  TAG = "TinkoffMarketService";
   Logger = new Logger();
 
-  subscribeCandles(fn: CandleSupscription, params: CandleSubscriptionOptions) {
+  private client: TinkoffApiClient;
+  constructor(client: TinkoffApiClient) {
+    this.client = client;
+  }
+
+  subscribeCandles(fn: CandleSupscription, options: CandleSubscriptionOptions) {
     if (!marketDataStream) {
       this._openMarketDataStream();
     }
@@ -60,14 +38,17 @@ export class MarketService extends TinkoffApiService {
       throw new Error("FATAL! Market must be opened!");
     }
 
-    this.Logger.debug(this.TAG, `Subscribe candles: ${JSON.stringify(params)}`);
-    subscriptions.push({ sub: fn, options: params });
+    this.Logger.debug(
+      this.TAG,
+      `Subscribe candles: ${JSON.stringify(options)}`
+    );
+    subscriptions.push({ sub: fn, options });
     marketDataStream.write({
       subscribeCandlesRequest: {
         instruments: [
           {
-            figi: params.instrument.figi,
-            interval: params.interval,
+            figi: options.figi,
+            interval: options.interval,
           },
         ],
         subscriptionAction: "SUBSCRIPTION_ACTION_SUBSCRIBE",
@@ -97,7 +78,7 @@ export class MarketService extends TinkoffApiService {
         subscribeCandlesRequest: {
           instruments: [
             {
-              figi: subscription.options.instrument.figi,
+              figi: subscription.options.figi,
               interval: subscription.options.interval,
             },
           ],
@@ -107,28 +88,32 @@ export class MarketService extends TinkoffApiService {
     }
   }
 
-  async getLastCandles(params: GetLastCandlesOptions) {
-    const { amount, instrument, interval, expirationDate } = params;
+  async getLastCandles(options: GetLastCandlesOptions) {
+    const { amount, instrumentFigi, interval, from } = options;
     const step = getLastCandlesStep[interval];
 
-    let fromDate = new Date(Date.now());
+    let cursorDate = new Date(Date.now());
     const candles: Record<string, HistoricalCandle> = {};
 
     this.Logger.debug(
       this.TAG,
-      `>> Get last candles with params: ${JSON.stringify(params)}`
+      `>> Get last candles with params: ${JSON.stringify(options)}`
     );
 
-    while (fromDate >= expirationDate) {
-      if (Object.keys(candles).length >= amount) {
+    while (cursorDate.getTime() >= from.getTime()) {
+      if (
+        Object.values(candles).filter((candle) => candle.isComplete).length >=
+        amount
+      ) {
         const data = Object.values(candles)
           .sort((candle1, candle2) => candle1.time - candle2.time)
+          .filter((candle) => candle.isComplete)
           .slice(-amount);
 
         this.Logger.debug(
           this.TAG,
           `<< Get last candles with params: ${JSON.stringify(
-            params
+            options
           )}\n${JSON.stringify(data)}`
         );
 
@@ -136,43 +121,44 @@ export class MarketService extends TinkoffApiService {
       }
 
       const candlesList = await this.getCandles({
-        from: fromDate,
-        to: new Date(fromDate.getTime() + step),
+        from: cursorDate,
+        to: new Date(cursorDate.getTime() + step),
 
-        instrument,
+        instrumentFigi,
         interval,
       });
       candlesList.forEach((candle) => (candles[candle.time] = candle));
 
-      if (fromDate.getTime() === expirationDate.getTime()) {
+      if (cursorDate.getTime() === from.getTime()) {
         break;
-      } else if (fromDate.getTime() - step < expirationDate.getTime()) {
-        fromDate = new Date(expirationDate);
+      } else if (cursorDate.getTime() - step < from.getTime()) {
+        cursorDate = new Date(from);
       } else {
-        fromDate = new Date(fromDate.getTime() - step);
+        cursorDate = new Date(cursorDate.getTime() - step);
       }
     }
 
     throw new Error("FATAL! Not enought data!");
   }
 
-  async getCandles(params: GetCandlesOptions) {
+  async getCandles(options: GetCandlesOptions) {
     const self = this;
+    const { instrumentFigi, from, to, interval } = options;
 
-    const options = {
-      figi: params.instrument.figi,
-      from: TimestampUtils.fromDate(params.from),
-      to: TimestampUtils.fromDate(params.to),
-      interval: params.interval,
+    const request = {
+      figi: instrumentFigi,
+      from: TimestampUtils.fromDate(from),
+      to: TimestampUtils.fromDate(to),
+      interval: interval,
     };
 
     this.Logger.debug(
       this.TAG,
-      `>> Get candles with params: ${JSON.stringify(options)} ...`
+      `>> Get candles with params: ${JSON.stringify(options)}`
     );
 
     return await new Promise<HistoricalCandle[]>((res) => {
-      self.config.client.marketData.GetCandles(options, (e, v) => {
+      self.client.marketData.GetCandles(request, (e, v) => {
         if (!e) {
           const data = (v?.candles || []).map(self._parseHistoricalCandle);
           this.Logger.debug(
@@ -194,7 +180,7 @@ export class MarketService extends TinkoffApiService {
     const self = this;
 
     self.Logger.debug(self.TAG, "Open marketDataStream connection");
-    marketDataStream = self.config.client.marketDataStream.marketDataStream();
+    marketDataStream = self.client.marketDataStream.marketDataStream();
 
     marketDataStream.on("close", function () {
       self.Logger.debug(self.TAG, "Close marketDataStream connection");

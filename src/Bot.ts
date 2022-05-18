@@ -1,27 +1,50 @@
-import { OpenAPIClient } from "@tinkoff/invest-js";
-import { CandleInterval, Instrument } from "./CommonTypes";
-import { ITinkoffApiClientServiceConfig } from "./Service";
+import { CandleInterval, OrderDirection } from "./CommonTypes";
+import { IInstrumentsService, IMarketService } from "./Services/Types";
 import { IStrategy } from "./Strategy";
 
-export interface IBotConfig<T extends IStrategy<any, any>> {
-  strategy: T;
-  config: ITinkoffApiClientServiceConfig;
+export interface IStockMarketRobotConfig {
+  strategy: IStrategy;
 
+  // Сколько требуется свечей чтобы стратегия дала предикт
+  numberCandlesToApplyStrategy: number;
+  minimalCandleTime: number;
+
+  services: {
+    marketService: IMarketService;
+    instrumentsService: IInstrumentsService;
+  };
+}
+
+export interface IStockMarketRobotStrategySignal {
+  instrumentFigi: string;
+  candleInterval: CandleInterval;
+
+  strategy: IStrategy;
+  orderDirection: OrderDirection;
+
+  time: number;
+  robot: IStockMarketRobot;
+}
+
+export interface IStockMarketRobotStartOptions {
+  instrumentFigi: string;
+  candleInterval: CandleInterval;
+
+  onStrategySignal: (info: IStockMarketRobotStrategySignal) => void;
+
+  // Таймстемп когда бот должен завершить свою работу
   terminateAt?: number;
 }
-export interface IBotStartConfig {
-  instrument: Instrument;
-  candleInterval: CandleInterval;
-  accountId: string;
-}
 
-export interface IBot<T extends IBotStartConfig, ST extends IBotConfig<any>> {
-  config: ST;
+export interface IStockMarketRobot {
+  config: IStockMarketRobotConfig;
 
-  start: (config: T) => void;
+  run: (options: IStockMarketRobotStartOptions) => Promise<void>;
   stop: () => void;
+
+  getId: () => string;
 }
 
-export function createClient(apiToken: string) {
-  return new OpenAPIClient({ token: apiToken });
+export interface IStrategySignalReceiver {
+  receive: (signalInfo: IStockMarketRobotStrategySignal) => void;
 }

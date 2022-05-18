@@ -1,38 +1,22 @@
 import Big from "big.js";
 import { Candle } from "./CommonTypes";
 
-export enum StrategyPredictAction {
+export enum StrategyPredictResult {
   STAY,
   BUY,
   SELL,
 }
 
-export interface IStrategyConfig extends Record<string, any> {}
-export interface IStrategyPredictParameters {}
-
-export interface IStrategy<
-  T extends IStrategyConfig,
-  P extends IStrategyPredictParameters
-> {
-  config: T;
-  predict: (params: P) => StrategyPredictAction;
+export interface IStrategy {
+  predict: (candles: Candle[]) => StrategyPredictResult;
 }
-
-export interface ICandlesStrategy<T>
-  extends IStrategy<T, { candles: Candle[] }> {}
 
 interface BollingerBandsStrategyConfig {
   periods: number;
   deviation: number;
 }
 
-interface BollingerBandsStrategyPredictParameters {
-  candles: Candle[];
-}
-
-export class BollingerBandsStrategy
-  implements ICandlesStrategy<BollingerBandsStrategyConfig>
-{
+export class BollingerBandsStrategy implements IStrategy {
   config: BollingerBandsStrategyConfig;
   constructor(config: BollingerBandsStrategyConfig) {
     if (config.periods <= 0) {
@@ -46,8 +30,7 @@ export class BollingerBandsStrategy
     this.config = config;
   }
 
-  predict(params: BollingerBandsStrategyPredictParameters) {
-    const { candles } = params;
+  predict(candles: Candle[]) {
     const { deviation, periods } = this.config;
 
     try {
@@ -63,13 +46,13 @@ export class BollingerBandsStrategy
 
       const lastCandle = candles[candles.length - 1];
       if (lastCandle.close.gte(upper_bb)) {
-        return StrategyPredictAction.BUY;
+        return StrategyPredictResult.BUY;
       } else if (lastCandle.close.lte(lower_bb)) {
-        return StrategyPredictAction.SELL;
+        return StrategyPredictResult.SELL;
       }
     } catch (ignored) {}
 
-    return StrategyPredictAction.STAY;
+    return StrategyPredictResult.STAY;
   }
 
   _get_sma(candles: Candle[], periods: number) {

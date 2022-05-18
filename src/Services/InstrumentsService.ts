@@ -1,32 +1,78 @@
 import { Instrument, TradingDay, TradingSchedule } from "../CommonTypes";
 import { Logger } from "../Logger";
-import { TinkoffApiService } from "../Service";
 import { TimestampUtils } from "../Timestamp";
 
 import { InstrumentRequest } from "@tinkoff/invest-js/build/generated/tinkoff/public/invest/api/contract/v1/InstrumentRequest";
+import {
+  IInstrumentsService,
+  GetInstrumentByFigiOptions,
+  GetInstrumentTradingScheduleOptions,
+} from "./Types";
+import { TinkoffApiClient } from "../TinkoffApiClient";
 
-interface TradingSchedulesOptions {
-  exchange: string;
-
-  from: Date;
-  to: Date;
-}
-
-export class InstrumentsService extends TinkoffApiService {
-  TAG = "InstrumentsService";
+export class TinkoffInstrumentsService implements IInstrumentsService {
+  TAG = "TinkoffInstrumentsService";
   Logger = new Logger();
 
-  async findInstrumentByFigi(figi: string) {
-    const options: InstrumentRequest = {
+  private client: TinkoffApiClient;
+  constructor(client: TinkoffApiClient) {
+    this.client = client;
+  }
+
+  async getInstrumentByFigi(options: GetInstrumentByFigiOptions) {
+    const { figi } = options;
+    const request: InstrumentRequest = {
       idType: "INSTRUMENT_ID_TYPE_FIGI" as "INSTRUMENT_ID_TYPE_FIGI",
       id: figi,
       classCode: "",
     };
 
-    return this.findInstrument(options);
+    return this.findInstrument(request);
   }
 
-  async findInstrument(request: InstrumentRequest) {
+  async getInstrumentTradingSchedule(
+    options: GetInstrumentTradingScheduleOptions
+  ) {
+    const self = this;
+    const { exchange, from, to } = options;
+
+    const request = {
+      exchange: exchange,
+      from: TimestampUtils.fromDate(from),
+      to: TimestampUtils.fromDate(to),
+    };
+
+    this.Logger.debug(
+      this.TAG,
+      `>> Get traiding schedule with params: ${JSON.stringify(options)}`
+    );
+
+    return await new Promise<TradingSchedule>((res) => {
+      self.client.instruments.TradingSchedules(request, (e, v) => {
+        if (!e) {
+          const data = (v?.exchanges || []).map(self._parseTradingSchedule);
+          if (data.length === 0) {
+            throw new Error("Get trading schedule empty array!");
+          }
+
+          const schedule = data[0];
+
+          this.Logger.debug(
+            this.TAG,
+            `<< Get traiding schedule with params: ${JSON.stringify(
+              options
+            )}\n${JSON.stringify(schedule)}`
+          );
+
+          res(schedule);
+        } else {
+          throw e;
+        }
+      });
+    });
+  }
+
+  private async findInstrument(request: InstrumentRequest) {
     const self = this;
 
     this.Logger.debug(
@@ -35,7 +81,7 @@ export class InstrumentsService extends TinkoffApiService {
     );
 
     return await new Promise<Instrument>((res) => {
-      self.config.client.instruments.shareBy(request, (e, v) => {
+      self.client.instruments.shareBy(request, (e, v) => {
         if (!e) {
           if (!v?.instrument) {
             throw new Error(
@@ -47,39 +93,6 @@ export class InstrumentsService extends TinkoffApiService {
             this.TAG,
             `<< Get instrument info with params: ${JSON.stringify(
               request
-            )}\n${JSON.stringify(data)}`
-          );
-
-          res(data);
-        } else {
-          throw e;
-        }
-      });
-    });
-  }
-
-  async getTrainingSchedules(params: TradingSchedulesOptions) {
-    const self = this;
-
-    const options = {
-      exchange: params.exchange,
-      from: TimestampUtils.fromDate(params.from),
-      to: TimestampUtils.fromDate(params.to),
-    };
-
-    this.Logger.debug(
-      this.TAG,
-      `>> Get traiding schedule with params: ${JSON.stringify(options)}`
-    );
-
-    return await new Promise<TradingSchedule[]>((res) => {
-      self.config.client.instruments.TradingSchedules(options, (e, v) => {
-        if (!e) {
-          const data = (v?.exchanges || []).map(self._parseTradingSchedule);
-          this.Logger.debug(
-            this.TAG,
-            `<< Get traiding schedule with params: ${JSON.stringify(
-              options
             )}\n${JSON.stringify(data)}`
           );
 

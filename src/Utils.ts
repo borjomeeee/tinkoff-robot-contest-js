@@ -1,5 +1,5 @@
 import Big from "big.js";
-import { Quotation } from "./CommonTypes";
+import { CandleInterval, Quotation } from "./CommonTypes";
 import { TerminateError } from "./Exceptions";
 
 export class Terminatable {
@@ -64,3 +64,14 @@ export class QuotationUtils {
     return Big(`${quotation.units}.${quotation.nano}`);
   }
 }
+
+export class CandleUtils {
+  static getCandleTimeStepByInterval(interval: CandleInterval) {
+    return candleTimeStep[interval];
+  }
+}
+
+const candleTimeStep = {
+  [CandleInterval.CANDLE_INTERVAL_1_MIN]: MIN_IN_MS,
+  [CandleInterval.CANDLE_INTERVAL_5_MIN]: FIVE_MIN_IN_MS,
+};
