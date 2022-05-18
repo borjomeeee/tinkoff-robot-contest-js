@@ -2,12 +2,12 @@ import { IBot, IBotConfig, IBotStartConfig } from "./Bot";
 import {
   Candle,
   CandleInterval,
-  HistoricalCandle,
   Instrument,
   SubscriptionCandleIntervalDict,
   TradingDay,
 } from "./CommonTypes";
 import { TerminateError } from "./Exceptions";
+import { Globals } from "./Globals";
 import { Logger } from "./Logger";
 import { useServices } from "./Services";
 import { ICandlesStrategy, StrategyPredictAction } from "./Strategy";
@@ -43,8 +43,8 @@ interface ICandlesBotStartConfig extends IBotStartConfig {
 export class CandlesBot
   implements IBot<ICandlesBotStartConfig, ICandlesBotConfig>
 {
-  TAG = "CandlesBot";
-  Logger = new Logger();
+  private TAG = "CandlesBot";
+  private Logger = new Logger();
 
   config: ICandlesBotConfig;
 
@@ -59,43 +59,26 @@ export class CandlesBot
     const { strategy } = this.config;
   }
 
-  async work(startConfig: ICandlesBotStartConfig, day: TradingDay) {
+  private async work(startConfig: ICandlesBotStartConfig, day: TradingDay) {
     const { strategy } = this.config;
     const { instrument, candleInterval } = startConfig;
 
-    const timeStep = candleTimeStep[candleInterval];
-
-    const startWorkTime = Date.now();
-    if (startWorkTime < day.startTime) {
-      await sleep(day.startTime - startWorkTime, this.current);
+    const beforeStart = this.getTimeLeftBeforeTradingDayStarted(day);
+    if (beforeStart > 0) {
+      await sleep(beforeStart, this.current);
     }
 
-    while (true) {
-      const startWorkIterationTime = Date.now();
+    const timeStep = candleTimeStep[candleInterval];
+    while (!this.isTradingDayCompleted(day)) {
+      this.Logger.debug(this.TAG, `Start work iteration`);
 
-      if (startWorkIterationTime >= day.endTime) {
-        // End work day
-        return;
-      }
-
-      this.Logger.debug(
-        this.TAG,
-        `Start work iteration with time: ${startWorkIterationTime}`
-      );
-
-      const lastCandles = await this._getLastCandles(
-        instrument,
-        candleInterval
-      );
-
+      const lastCandles = await this.getLastCandles(instrument, candleInterval);
       const lastCandleCloseTime =
         lastCandles[lastCandles.length - 1].time + timeStep;
 
-      // If must appears new candle but not getted
-      // Wait for it
-      const nowTime = Date.now();
-      if (nowTime - lastCandleCloseTime > timeStep) {
-        await sleep(200, this.current);
+      // If last candle is not actual
+      if (Date.now() - lastCandleCloseTime > timeStep) {
+        await sleep(Globals.tinkoffApiDdosInterval, this.current);
         continue;
       }
 
@@ -106,61 +89,34 @@ export class CandlesBot
         this.Logger.debug(this.TAG, "SELL!!!");
       }
 
-      const nowTimeForNextIteration = Date.now();
-      const nextCandleOpenTime =
-        timeStep - (nowTimeForNextIteration - lastCandleCloseTime);
-
+      const nextCandleOpenTime = timeStep - (Date.now() - lastCandleCloseTime);
       if (nextCandleOpenTime > 0) {
-        // Delay for candle appears in api
-        await sleep(nextCandleOpenTime + 200, this.current);
+        // Wait for next candle
+        await sleep(
+          nextCandleOpenTime + Globals.tinkoffApiDdosInterval,
+          this.current
+        );
       }
     }
   }
 
-  async runSession(startConfig: ICandlesBotStartConfig) {
-    const { config, terminateAt = Infinity } = this.config;
+  private async runSession(startConfig: ICandlesBotStartConfig) {
     const { instrument } = startConfig;
 
-    const { instrumentsService } = useServices(config);
-
-    while (true) {
-      const nowTime = Date.now();
-
-      // Bot session was expired
-      if (nowTime > terminateAt) {
-        return;
-      }
-
-      const tradingSchedules = await instrumentsService.getTrainingSchedules({
-        from: new Date(nowTime),
-        to: new Date(nowTime + DAY_IN_MS),
-
-        exchange: instrument.exchange,
-      });
-
-      if (tradingSchedules.length === 0) {
-        throw new Error(
-          `FATAL! Not found trading schedules for instrument: ${JSON.stringify(
-            instrument
-          )}`
-        );
-      }
-      const tradingSchedule = tradingSchedules[0];
-      if (tradingSchedule.days.length < 2) {
-        throw new Error(`FATAL! Can't get api trading schedule days!`);
-      }
-      const [currentTradingDay, nextTradingDay] = tradingSchedule.days;
+    while (!this.isSessionExpired()) {
+      const [currentTradingDay, nextTradingDay] =
+        await this.getTradingDaysForNow(instrument);
 
       try {
         if (currentTradingDay.isTraidingDay) {
-          this.Logger.debug(this.TAG, `Start working day at: ${Date.now()}`);
+          this.Logger.debug(this.TAG, `Start working day`);
           await this.work(startConfig, currentTradingDay);
-          this.Logger.debug(this.TAG, `End working day at: ${Date.now()}`);
+          this.Logger.debug(this.TAG, `End working day`);
         }
       } catch (e) {
         // Work was terminated by user
         if (e instanceof TerminateError) {
-          this.Logger.error(
+          this.Logger.debug(
             this.TAG,
             `Bot was terminated by user at time: ${Date.now()}`
           );
@@ -170,12 +126,13 @@ export class CandlesBot
         throw e;
       }
 
+      // Wait for next trading day
       const endWorkTime = Date.now();
       await sleep(nextTradingDay.startTime - endWorkTime, this.current);
     }
   }
 
-  async stopSession() {
+  private async stopSession() {
     this.current.terminate();
     this.current.reset();
   }
@@ -209,7 +166,7 @@ export class CandlesBot
     this.stopSession();
   }
 
-  async _getLastCandles(
+  private async getLastCandles(
     instrument: Instrument,
     candleInterval: CandleInterval
   ) {
@@ -235,6 +192,51 @@ export class CandlesBot
     }
 
     return lastCandles;
+  }
+
+  private async getTradingDaysForNow(instrument: Instrument) {
+    const { config } = this.config;
+    const { instrumentsService } = useServices(config);
+
+    const nowTime = Date.now();
+    const tradingSchedules = await instrumentsService.getTrainingSchedules({
+      from: new Date(nowTime),
+      to: new Date(nowTime + DAY_IN_MS),
+
+      exchange: instrument.exchange,
+    });
+
+    if (tradingSchedules.length === 0) {
+      throw new Error(
+        `FATAL! Not found trading schedules for instrument: ${JSON.stringify(
+          instrument
+        )}`
+      );
+    }
+    const tradingSchedule = tradingSchedules[0];
+    if (tradingSchedule.days.length < 2) {
+      throw new Error(`FATAL! Can't get api trading schedule days!`);
+    }
+
+    // Return only today and tommorow
+    return tradingSchedule.days.slice(0, 2);
+  }
+
+  private isSessionExpired() {
+    const { terminateAt = Infinity } = this.config;
+    const nowTime = Date.now();
+
+    return nowTime >= terminateAt;
+  }
+
+  private getTimeLeftBeforeTradingDayStarted(tradingDay: TradingDay) {
+    const nowTime = Date.now();
+    return Math.min(tradingDay.startTime - nowTime, 0);
+  }
+
+  private isTradingDayCompleted(tradingDay: TradingDay) {
+    const nowTime = Date.now();
+    return nowTime >= tradingDay.endTime;
   }
 }
 

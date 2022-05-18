@@ -1,12 +1,16 @@
 import "dotenv/config";
 import { CandlesBot } from "./CandleBot";
 import { CandleInterval } from "./CommonTypes";
+import { Globals } from "./Globals";
+import { Logger } from "./Logger";
 import { useServices } from "./Services";
 import { BollingerBandsStrategy } from "./Strategy";
 import { TinkoffApiClient } from "./TinkoffApiClient";
 import { WEEK_IN_MS } from "./Utils";
 
 async function main() {
+  await Logger.setFilePath(`logs-${new Date().toISOString()}.txt`);
+
   if (typeof process.env.TINKOFF_API_TOKEN === "string") {
     const client = new TinkoffApiClient({
       token: process.env.TINKOFF_API_TOKEN,
@@ -16,7 +20,7 @@ async function main() {
     const { instrumentsService } = useServices(servicesConfig);
 
     const instrument = await instrumentsService.findInstrumentByFigi(
-      "BBG000B9XRY4"
+      Globals.APPL_SPBX_FIGI
     );
 
     const bollingerBot = new CandlesBot({
@@ -36,8 +40,6 @@ async function main() {
       takeProfit: 10,
       stopLoss: 10,
     });
-
-    setTimeout(() => bollingerBot.stop(), 5000);
   }
 }
 main();

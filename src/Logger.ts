@@ -1,34 +1,57 @@
-export enum LoggerLevel {
-  DEBUG,
-  WARN,
-  ERROR,
-}
+import { appendFile } from "fs/promises";
+import { open, FileHandle } from "node:fs/promises";
+import { Globals } from "./Globals";
+import { LoggerLevel } from "./LoggerTypes";
 export interface ILogger {
-  level: LoggerLevel;
   warn: (tag: string, message: string) => void;
   debug: (tag: string, message: string) => void;
   error: (tag: string, message: string) => void;
 }
 
+let file: FileHandle | undefined = undefined;
 export class Logger implements ILogger {
-  level: LoggerLevel;
-  constructor(level: LoggerLevel = LoggerLevel.DEBUG) {
+  private level: LoggerLevel;
+
+  constructor(level: LoggerLevel = Globals.loggerLevel) {
     this.level = level;
   }
 
   debug(tag: string, msg: string, level = this.level) {
     if (level <= LoggerLevel.DEBUG) {
-      console.log(`[DEBUG] ${new Date().toISOString()} [${tag}] ${msg}`);
+      const logMsg = this._buildMsg("DEBUG", tag, msg);
+      this.log(logMsg, console.log);
     }
   }
   warn(tag: string, msg: string, level: LoggerLevel = this.level) {
     if (level <= LoggerLevel.WARN) {
-      console.warn(`[WARN] ${new Date().toISOString()} [${tag}] ${msg}`);
+      const logMsg = this._buildMsg("WARN", tag, msg);
+      this.log(logMsg, console.warn);
     }
   }
   error(tag: string, msg: string, level: LoggerLevel = this.level) {
     if (level <= LoggerLevel.ERROR) {
-      console.error(`[ERROR] ${new Date().toISOString()} [${tag}] ${msg}`);
+      const logMsg = this._buildMsg("ERROR", tag, msg);
+      this.log(logMsg, console.error);
     }
+  }
+
+  async log(msg: string, writer: (str: string) => any) {
+    if (file) {
+      try {
+        await appendFile(file, msg + "\n");
+      } catch (ignored) {
+        writer("FATAL! Error on log msg!");
+      }
+    } else {
+      writer(msg);
+    }
+  }
+
+  _buildMsg(level: string, tag: string, msg: string) {
+    return `[${level}] ${new Date().toISOString()} [${tag}] ${msg}`;
+  }
+
+  static async setFilePath(path: string) {
+    file = await open(path, "w");
   }
 }

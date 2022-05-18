@@ -3,6 +3,8 @@ import { Logger } from "../Logger";
 import { TinkoffApiService } from "../Service";
 import { TimestampUtils } from "../Timestamp";
 
+import { InstrumentRequest } from "@tinkoff/invest-js/build/generated/tinkoff/public/invest/api/contract/v1/InstrumentRequest";
+
 interface TradingSchedulesOptions {
   exchange: string;
 
@@ -15,32 +17,36 @@ export class InstrumentsService extends TinkoffApiService {
   Logger = new Logger();
 
   async findInstrumentByFigi(figi: string) {
-    const self = this;
-
-    const options = {
+    const options: InstrumentRequest = {
       idType: "INSTRUMENT_ID_TYPE_FIGI" as "INSTRUMENT_ID_TYPE_FIGI",
       id: figi,
       classCode: "",
     };
 
+    return this.findInstrument(options);
+  }
+
+  async findInstrument(request: InstrumentRequest) {
+    const self = this;
+
     this.Logger.debug(
       this.TAG,
-      `>> Get instrument info with params: ${JSON.stringify(options)}`
+      `>> Get instrument info with params: ${JSON.stringify(request)}`
     );
 
     return await new Promise<Instrument>((res) => {
-      self.config.client.instruments.shareBy(options, (e, v) => {
+      self.config.client.instruments.shareBy(request, (e, v) => {
         if (!e) {
           if (!v?.instrument) {
             throw new Error(
-              `Get invalid data for instrument: ${JSON.stringify(options)}`
+              `Get invalid data for instrument: ${JSON.stringify(request)}`
             );
           }
           const data: Instrument = self._parseInstrument(v.instrument);
           this.Logger.debug(
             this.TAG,
             `<< Get instrument info with params: ${JSON.stringify(
-              options
+              request
             )}\n${JSON.stringify(data)}`
           );
 
@@ -104,6 +110,7 @@ export class InstrumentsService extends TinkoffApiService {
       figi: feature.figi,
       exchange: feature.exchange,
       uid: feature.uid,
+      ticker: feature.ticker,
 
       ipoDate: TimestampUtils.toDate(feature.ipoDate).getTime(),
       tradable: feature.apiTradeAvailableFlag,

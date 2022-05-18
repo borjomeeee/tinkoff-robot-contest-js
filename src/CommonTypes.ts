@@ -32,6 +32,7 @@ export const SubscriptionCandleIntervalDict: Record<
 export interface Instrument {
   figi: string;
   exchange: string;
+  ticker: string;
   uid: string;
 
   // Дата выхода на биржу
