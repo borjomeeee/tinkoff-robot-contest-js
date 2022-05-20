@@ -21,6 +21,7 @@ export class TinkoffInstrumentsService implements IInstrumentsService {
 
   async getInstrumentByFigi(options: GetInstrumentByFigiOptions) {
     const { figi } = options;
+
     const request: InstrumentRequest = {
       idType: "INSTRUMENT_ID_TYPE_FIGI" as "INSTRUMENT_ID_TYPE_FIGI",
       id: figi,
@@ -77,22 +78,20 @@ export class TinkoffInstrumentsService implements IInstrumentsService {
 
     this.Logger.debug(
       this.TAG,
-      `>> Get instrument info with params: ${JSON.stringify(request)}`
+      `>> Get instrument with params: ${JSON.stringify(request)}`
     );
 
     return await new Promise<Instrument>((res) => {
       self.client.instruments.shareBy(request, (e, v) => {
         if (!e) {
           if (!v?.instrument) {
-            throw new Error(
-              `Get invalid data for instrument: ${JSON.stringify(request)}`
-            );
+            throw new Error(`Get undefined instrument!`);
           }
 
           const data: Instrument = self._parseInstrument(v.instrument);
           this.Logger.debug(
             this.TAG,
-            `<< Get instrument info with params: ${JSON.stringify(
+            `<< Get instrument with params: ${JSON.stringify(
               request
             )}\n${JSON.stringify(data)}`
           );

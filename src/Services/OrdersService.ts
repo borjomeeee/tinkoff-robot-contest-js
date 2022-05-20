@@ -23,11 +23,6 @@ import {
   PostOrderOptions,
 } from "./Types";
 
-interface IAccountOrdersListeners {
-  sub: OrderTradesSubscription;
-  optoins: OrderTradesSubscriptionOptions;
-}
-
 interface ITinkoffOrdersServiceConstructorOptions {
   client: TinkoffApiClient;
   isSandbox: boolean;

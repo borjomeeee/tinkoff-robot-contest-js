@@ -11,15 +11,15 @@ import { Order, OrderTrade, UncompletedOrder } from "../Order";
 
 export interface IMarketService {
   subscribeCandles(
-    fn: CandleSupscription,
-    options: CandleSubscriptionOptions
+    options: CandleSubscriptionOptions,
+    fn: CandleSupscription
   ): CandleSupscription;
 
   unsubscribeCandles(fn: CandleSupscription): void;
 
   subscribeLastPrice(
-    fn: LastPriceSubscription,
-    options: LastPriceSubscriptionOptions
+    options: LastPriceSubscriptionOptions,
+    fn: LastPriceSubscription
   ): LastPriceSubscription;
 
   unsubscribeLastPrice(fn: LastPriceSubscription): void;
