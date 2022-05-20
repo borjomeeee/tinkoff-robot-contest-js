@@ -1,0 +1,127 @@
+{
+  "robot1653062401860@1653062340000": {
+    "signal": {
+      "orderDirection": "sell",
+      "instrumentFigi": "BBG000B9XRY4",
+      "candleInterval": "CANDLE_INTERVAL_1_MIN",
+      "strategy": { "config": { "periods": 20, "deviation": 2 } },
+      "lastCandle": {
+        "open": "137.02",
+        "close": "136.77",
+        "high": "137.03",
+        "low": "136.75",
+        "time": 1653062340000,
+        "isComplete": true
+      },
+      "time": 1653062402121,
+      "robotId": "robot1653062401860"
+    },
+    "status": "successful",
+    "openOrderId": "848717df-61b5-469c-a330-4a2aa26e9431",
+    "closeOrderId": "e06ddd33-016b-44d6-8a49-4c01aae4d504"
+  },
+  "robot1653062401860@1653062460000": {
+    "signal": {
+      "orderDirection": "sell",
+      "instrumentFigi": "BBG000B9XRY4",
+      "candleInterval": "CANDLE_INTERVAL_1_MIN",
+      "strategy": { "config": { "periods": 20, "deviation": 2 } },
+      "lastCandle": {
+        "open": "136.83",
+        "close": "136.66",
+        "high": "136.83",
+        "low": "136.66",
+        "time": 1653062460000,
+        "isComplete": true
+      },
+      "time": 1653062521100,
+      "robotId": "robot1653062401860"
+    },
+    "status": "successful",
+    "openOrderId": "8987dd6e-93d3-4746-8689-30e810d023ae",
+    "closeOrderId": "584f1d43-5e1f-43dc-a811-697b59b45ade"
+  },
+  "robot1653062401860@1653062520000": {
+    "signal": {
+      "orderDirection": "sell",
+      "instrumentFigi": "BBG000B9XRY4",
+      "candleInterval": "CANDLE_INTERVAL_1_MIN",
+      "strategy": { "config": { "periods": 20, "deviation": 2 } },
+      "lastCandle": {
+        "open": "136.66",
+        "close": "136.58",
+        "high": "136.67",
+        "low": "136.54",
+        "time": 1653062520000,
+        "isComplete": true
+      },
+      "time": 1653062581060,
+      "robotId": "robot1653062401860"
+    },
+    "status": "successful",
+    "openOrderId": "68a68861-b7a6-4c10-8685-b67775d1cea6",
+    "closeOrderId": "c430330b-f77b-4e47-b2c7-246777e673ef"
+  },
+  "robot1653062401860@1653062880000": {
+    "signal": {
+      "orderDirection": "sell",
+      "instrumentFigi": "BBG000B9XRY4",
+      "candleInterval": "CANDLE_INTERVAL_1_MIN",
+      "strategy": { "config": { "periods": 20, "deviation": 2 } },
+      "lastCandle": {
+        "open": "136.53",
+        "close": "136.18",
+        "high": "136.54",
+        "low": "136.17",
+        "time": 1653062880000,
+        "isComplete": true
+      },
+      "time": 1653062941102,
+      "robotId": "robot1653062401860"
+    },
+    "status": "successful",
+    "openOrderId": "0404ea8a-9ae1-48ca-846a-97f0c110e6b6",
+    "closeOrderId": "4d9b0252-e022-4782-b11e-00f7815f4c28"
+  },
+  "robot1653062401860@1653062940000": {
+    "signal": {
+      "orderDirection": "sell",
+      "instrumentFigi": "BBG000B9XRY4",
+      "candleInterval": "CANDLE_INTERVAL_1_MIN",
+      "strategy": { "config": { "periods": 20, "deviation": 2 } },
+      "lastCandle": {
+        "open": "136.18",
+        "close": "135.88",
+        "high": "136.21",
+        "low": "135.88",
+        "time": 1653062940000,
+        "isComplete": true
+      },
+      "time": 1653063001055,
+      "robotId": "robot1653062401860"
+    },
+    "status": "in-work",
+    "openOrderId": "dfab7e14-a938-4f9e-861a-2b73302239b4"
+  },
+  "robot1653062401860@1653063000000": {
+    "signal": {
+      "orderDirection": "sell",
+      "instrumentFigi": "BBG000B9XRY4",
+      "candleInterval": "CANDLE_INTERVAL_1_MIN",
+      "strategy": { "config": { "periods": 20, "deviation": 2 } },
+      "lastCandle": {
+        "open": "135.88",
+        "close": "135.61",
+        "high": "135.92",
+        "low": "135.55",
+        "time": 1653063000000,
+        "isComplete": true
+      },
+      "time": 1653063061099,
+      "robotId": "robot1653062401860"
+    },
+    "status": "successful",
+    "openOrderId": "ed8a0585-89fe-42dd-8a39-b957be0d6356",
+    "closeOrderId": "f13e3f07-59de-4443-bc26-bda4578cb7a4"
+  }
+}

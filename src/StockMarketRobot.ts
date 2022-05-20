@@ -19,6 +19,7 @@ import {
   CandleUtils,
   DAY_IN_MS,
   FIVE_MIN_IN_MS,
+  HOUR_IN_MS,
   MIN_IN_MS,
   sleep,
   Terminatable,
@@ -34,13 +35,14 @@ interface IStockMarketWorkOptions {
 }
 
 export class StockMarketRobot implements IStockMarketRobot {
-  id = uuidv4();
+  id = "robot" + Date.now().toString();
   config: IStockMarketRobotConfig;
 
   TAG = "StockMarketRobot";
   Logger = new Logger();
 
   private terminatable = new Terminatable();
+  private isRunning = false;
 
   constructor(config: IStockMarketRobotConfig) {
     this.config = config;
@@ -57,7 +59,7 @@ export class StockMarketRobot implements IStockMarketRobot {
       options;
 
     const timeStep = CandleUtils.getCandleTimeStepByInterval(candleInterval);
-    while (Date.now() < endTime) {
+    while (Date.now() < endTime && this.isRunning) {
       this.Logger.debug(this.TAG, `Start work iteration`);
 
       const lastCandles = await marketService.getLastCandles({
@@ -68,67 +70,91 @@ export class StockMarketRobot implements IStockMarketRobot {
         from: new Date(minimalCandleTime),
       });
 
-      const lastCandleCloseTime =
-        lastCandles[lastCandles.length - 1].time + timeStep;
+      const lastCandle = lastCandles[lastCandles.length - 1];
+      const lastCandleCloseTime = lastCandle.time + timeStep;
 
       // If last candle is not actual
       if (Date.now() - lastCandleCloseTime > timeStep) {
-        await sleep(Globals.tinkoffApiDdosInterval, this.terminatable);
+        await this.sleepIfRunning(Globals.tinkoffApiDdosInterval);
         continue;
       }
 
       const predictResult = strategy.predict(lastCandles);
       if (predictResult === StrategyPredictResult.BUY) {
+        this.Logger.debug(
+          this.TAG,
+          `Get buy signal on candle: ${JSON.stringify(lastCandle)}`
+        );
+
         onStrategySignal({
           orderDirection: OrderDirection.BUY,
           instrumentFigi,
           candleInterval,
-          strategy,
+          lastCandle,
           time: Date.now(),
-          robot: this,
+          robotId: this.getId(),
         });
       } else if (predictResult === StrategyPredictResult.SELL) {
+        this.Logger.debug(
+          this.TAG,
+          `Get sell signal on candle: ${JSON.stringify(lastCandle)}`
+        );
+
         onStrategySignal({
           orderDirection: OrderDirection.SELL,
           instrumentFigi,
           candleInterval,
-          strategy,
+          lastCandle,
           time: Date.now(),
-          robot: this,
+          robotId: this.getId(),
         });
       }
 
       // Wait for next candle
       const nextCandleOpenTime = timeStep - (Date.now() - lastCandleCloseTime);
       if (nextCandleOpenTime > 0) {
-        await sleep(
-          nextCandleOpenTime + Globals.tinkoffApiDdosInterval,
-          this.terminatable
+        await this.sleepIfRunning(
+          nextCandleOpenTime + Globals.tinkoffApiDdosInterval
         );
       }
     }
   }
 
   async run(options: IStockMarketRobotStartOptions) {
-    const {
-      instrumentFigi,
-      candleInterval,
-      onStrategySignal,
-      terminateAt = Infinity,
-    } = options;
+    if (this.isRunning) {
+      return;
+    }
+
+    this.isRunning = true;
+    const { instrumentFigi, candleInterval, onStrategySignal, terminateAt } =
+      options;
     const { instrumentsService } = this.config.services;
+
+    this.Logger.debug(
+      this.TAG,
+      `Stock market robot(${this.getId()}) started with options: ${JSON.stringify(
+        options
+      )}`
+    );
+
+    // Stop when needed
+    terminateAt && setTimeout(() => this.stop(), terminateAt - Date.now());
 
     try {
       const instrument = await instrumentsService.getInstrumentByFigi({
         figi: instrumentFigi,
       });
 
-      while (Date.now() < terminateAt) {
+      while (this.isRunning) {
         const [currentTradingDay, nextTradingDay] =
           await this.getTradingDaysForNow(instrument);
 
         try {
-          if (currentTradingDay.isTraidingDay) {
+          if (
+            currentTradingDay.isTraidingDay &&
+            currentTradingDay.startTime &&
+            currentTradingDay.endTime
+          ) {
             const nowTimeBeforeStart = Date.now();
             const timeBeforeStart = Math.min(
               currentTradingDay.startTime - nowTimeBeforeStart,
@@ -137,7 +163,7 @@ export class StockMarketRobot implements IStockMarketRobot {
 
             // Wait for work day start
             if (timeBeforeStart > 0) {
-              await sleep(timeBeforeStart, this.terminatable);
+              await this.sleepIfRunning(timeBeforeStart);
             }
 
             this.Logger.debug(this.TAG, `Start working day`);
@@ -164,15 +190,31 @@ export class StockMarketRobot implements IStockMarketRobot {
         }
 
         // Wait for next trading day
-        const endWorkTime = Date.now();
-        await sleep(nextTradingDay.startTime - endWorkTime, this.terminatable);
+        if (nextTradingDay.startTime) {
+          const endWorkTime = Date.now();
+          await this.sleepIfRunning(nextTradingDay.startTime - endWorkTime);
+        } else {
+          await this.sleepIfRunning(12 * HOUR_IN_MS);
+        }
       }
     } catch (e) {
       this.Logger.error(this.TAG, `Get error on running bot: ${e.message}`);
     }
+
+    this.stop();
   }
 
-  stop() {}
+  stop() {
+    if (this.isRunning) {
+      this.Logger.debug(
+        this.TAG,
+        `Stock market robot(${this.getId()}) stopped`
+      );
+
+      this.isRunning = false;
+      this.terminatable.terminate();
+    }
+  }
 
   getId() {
     return this.id;
@@ -196,5 +238,13 @@ export class StockMarketRobot implements IStockMarketRobot {
 
     // Return only today and tommorow
     return tradingSchedule.days.slice(0, 2);
+  }
+
+  private async sleepIfRunning(ms: number) {
+    if (this.isRunning) {
+      await sleep(ms, this.terminatable);
+    } else {
+      throw this.terminatable.error;
+    }
   }
 }

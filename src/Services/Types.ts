@@ -1,10 +1,13 @@
+import Big from "big.js";
 import {
   Candle,
   CandleInterval,
   Instrument,
+  OrderDirection,
   SubscriptionCandleInverval,
   TradingSchedule,
 } from "../CommonTypes";
+import { Order, OrderTrade, UncompletedOrder } from "../Order";
 
 export interface IMarketService {
   subscribeCandles(
@@ -13,6 +16,13 @@ export interface IMarketService {
   ): CandleSupscription;
 
   unsubscribeCandles(fn: CandleSupscription): void;
+
+  subscribeLastPrice(
+    fn: LastPriceSubscription,
+    options: LastPriceSubscriptionOptions
+  ): LastPriceSubscription;
+
+  unsubscribeLastPrice(fn: LastPriceSubscription): void;
 
   getCandles(options: GetCandlesOptions): Promise<Candle[]>;
   getLastCandles(options: GetLastCandlesOptions): Promise<Candle[]>;
@@ -25,10 +35,40 @@ export interface IInstrumentsService {
   ): Promise<TradingSchedule>;
 }
 
+export interface IOrdersService {
+  postMarketOrder: (
+    options: PostMarketOrderOptions
+  ) => Promise<UncompletedOrder>;
+  postLimitOrder: (options: PostLimitOrderOptions) => Promise<UncompletedOrder>;
+
+  cancelOrder: (options: CancelOrderOptions) => Promise<void>;
+
+  getOrderState: (options: GetOrderStateOptions) => Promise<Order>;
+  getAccountOrders: (options: GetAccountOrdersOptions) => Promise<Order[]>;
+
+  // subscribeOrderTrades: (
+  //   fn: OrderTradesSubscription,
+  //   options: OrderTradesSubscriptionOptions
+  // ) => OrderTradesSubscription;
+
+  // unsubscribeOrderTrades: (fn: OrderTradesSubscription) => void;
+}
+
 export type CandleSupscription = (candle: Candle) => any;
+export type LastPriceSubscription = (price: Big) => any;
+
+export type OrderTradesSubscription = (trade: OrderTrade) => any;
 export interface CandleSubscriptionOptions {
   figi: string;
   interval: SubscriptionCandleInverval;
+}
+
+export interface LastPriceSubscriptionOptions {
+  figi: string;
+}
+
+export interface OrderTradesSubscriptionOptions {
+  accountId: string;
 }
 
 export interface GetCandlesOptions {
@@ -56,4 +96,33 @@ export interface GetInstrumentTradingScheduleOptions {
 
   from: Date;
   to: Date;
+}
+
+export interface PostOrderOptions {
+  instrumentFigi: string;
+  orderDirection: OrderDirection;
+
+  price?: Big;
+  lots: number;
+
+  orderId: string;
+  accountId: string;
+}
+
+export interface PostMarketOrderOptions extends PostOrderOptions {}
+export interface PostLimitOrderOptions extends PostOrderOptions {
+  price: Big;
+}
+export interface CancelOrderOptions {
+  accountId: string;
+  orderId: string;
+}
+
+export interface GetOrderStateOptions {
+  accountId: string;
+  orderId: string;
+}
+
+export interface GetAccountOrdersOptions {
+  accountId: string;
 }

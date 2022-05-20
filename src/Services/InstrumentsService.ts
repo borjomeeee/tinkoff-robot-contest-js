@@ -88,6 +88,7 @@ export class TinkoffInstrumentsService implements IInstrumentsService {
               `Get invalid data for instrument: ${JSON.stringify(request)}`
             );
           }
+
           const data: Instrument = self._parseInstrument(v.instrument);
           this.Logger.debug(
             this.TAG,
@@ -110,8 +111,12 @@ export class TinkoffInstrumentsService implements IInstrumentsService {
       days: feature.days.map(
         (day: any): TradingDay => ({
           date: day.date,
-          startTime: TimestampUtils.toDate(day.startTime).getTime(),
-          endTime: TimestampUtils.toDate(day.endTime).getTime(),
+          startTime: day.startTime
+            ? TimestampUtils.toDate(day.startTime).getTime()
+            : undefined,
+          endTime: day.endTime
+            ? TimestampUtils.toDate(day.endTime).getTime()
+            : undefined,
           isTraidingDay: day.isTradingDay,
         })
       ),
@@ -125,8 +130,11 @@ export class TinkoffInstrumentsService implements IInstrumentsService {
       uid: feature.uid,
       ticker: feature.ticker,
 
-      ipoDate: TimestampUtils.toDate(feature.ipoDate).getTime(),
+      ipoDate: feature.ipoDate
+        ? TimestampUtils.toDate(feature.ipoDate).getTime()
+        : undefined,
       tradable: feature.apiTradeAvailableFlag,
+      lot: feature.lot,
     };
   }
 }

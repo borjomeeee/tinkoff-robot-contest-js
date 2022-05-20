@@ -1,0 +1,30 @@
+diff --git a/node_modules/@tinkoff/invest-js/build/index.d.ts b/node_modules/@tinkoff/invest-js/build/index.d.ts
+index 20346ef..5929d9e 100644
+--- a/node_modules/@tinkoff/invest-js/build/index.d.ts
++++ b/node_modules/@tinkoff/invest-js/build/index.d.ts
+@@ -27,6 +27,8 @@ export declare const MarketDataService: (new (address: string, credentials: impo
+ interface OpenAPIClientOptions {
+     token: string;
+     url?: string;
++
++    metadata?: Record<string, string>
+ }
+ declare class OpenAPIClient {
+     token: string;
+diff --git a/node_modules/@tinkoff/invest-js/build/index.js b/node_modules/@tinkoff/invest-js/build/index.js
+index b08ba1d..db44edf 100644
+--- a/node_modules/@tinkoff/invest-js/build/index.js
++++ b/node_modules/@tinkoff/invest-js/build/index.js
+@@ -25,8 +25,12 @@ var OpenAPIClient = /** @class */ (function () {
+     function OpenAPIClient(options) {
+         this.token = options.token;
+         this.url = options.url || 'invest-public-api.tinkoff.ru:443';
++        var providedMetadata = options.metadata || {}
+         var metadata = new grpc_js_1.Metadata();
+         metadata.add('Authorization', 'Bearer ' + this.token);
++        for (const key in providedMetadata) {
++            metadata.add(providedMetadata[key])
++        }
+         var ssl_creds = grpc_js_1.credentials.combineChannelCredentials(grpc_js_1.credentials.createSsl(), grpc_js_1.credentials.createFromMetadataGenerator(function (_, callback) {
+             return callback(null, metadata);
+         }));

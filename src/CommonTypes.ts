@@ -40,8 +40,11 @@ export interface Instrument {
   ticker: string;
   uid: string;
 
+  // Лотность
+  lot: number;
+
   // Дата выхода на биржу
-  ipoDate: number;
+  ipoDate?: number;
   // Доступность торгов через апи
   tradable: boolean;
 }
@@ -62,8 +65,8 @@ export interface HistoricalCandle extends Candle {
 export interface TradingDay {
   date: number;
 
-  startTime: number;
-  endTime: number;
+  startTime?: number;
+  endTime?: number;
 
   isTraidingDay: boolean;
 }

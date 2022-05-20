@@ -1,17 +1,39 @@
+import Big from "big.js";
 import { OrderDirection } from "./CommonTypes";
 
-export interface Order {
+export enum OrderExecutionStatus {
+  COMPLETED,
+  REJECTED,
+  CANCELLED_BY_USER,
+  NEW,
+  PARTIALLY_COMPLETED,
+}
+export interface UncompletedOrder {
   id: string;
-
-  sessionId: string;
   accountId: string;
 
   instrumentFigi: string;
-  signalCandleCloseTime: number;
-
   direction: OrderDirection;
+  status: OrderExecutionStatus;
 
   lots: number;
-  price: number;
-  commission: number;
+}
+
+export interface OrderTrade {
+  orderId: string;
+
+  currentPrice: number;
+  currentLots: number;
+}
+
+export interface Order extends UncompletedOrder {
+  totalPrice?: Big;
+  totalCommision?: Big;
+
+  time?: number;
+}
+
+export interface CompletedOrder extends Order {
+  totalPrice: Big;
+  totalCommission: Big;
 }

@@ -1,3 +1,4 @@
+import Big from "big.js";
 import { Candle, CandleInterval, HistoricalCandle } from "../CommonTypes";
 import { Logger } from "../Logger";
 import { TimestampUtils } from "../Timestamp";
@@ -9,6 +10,8 @@ import {
   CandleSubscriptionOptions,
   GetLastCandlesOptions,
   GetCandlesOptions,
+  LastPriceSubscription,
+  LastPriceSubscriptionOptions,
 } from "./Types";
 
 interface ITinkoffMarketServiceCandleSubscription {
@@ -16,7 +19,13 @@ interface ITinkoffMarketServiceCandleSubscription {
   options: CandleSubscriptionOptions;
 }
 
-let subscriptions: ITinkoffMarketServiceCandleSubscription[] = [];
+interface ITinkoffMarketServiceLastPriceSubscription {
+  sub: LastPriceSubscription;
+  options: LastPriceSubscriptionOptions;
+}
+
+let candlesSubscriptions: ITinkoffMarketServiceCandleSubscription[] = [];
+let lastPricesSubscriptions: ITinkoffMarketServiceLastPriceSubscription[] = [];
 let marketDataStream: any | undefined = undefined;
 
 export class TinkoffMarketService implements IMarketService {
@@ -42,7 +51,7 @@ export class TinkoffMarketService implements IMarketService {
       this.TAG,
       `Subscribe candles: ${JSON.stringify(options)}`
     );
-    subscriptions.push({ sub: fn, options });
+    candlesSubscriptions.push({ sub: fn, options });
     marketDataStream.write({
       subscribeCandlesRequest: {
         instruments: [
@@ -59,15 +68,15 @@ export class TinkoffMarketService implements IMarketService {
   }
 
   unsubscribeCandles(fn: CandleSupscription) {
-    const subscription = subscriptions.find((sub) => sub.sub === fn);
+    const subscription = candlesSubscriptions.find((sub) => sub.sub === fn);
     if (!subscription) {
       return;
     }
 
-    subscriptions = subscriptions.filter((sub) => sub !== subscription);
-    if (subscriptions.length === 0) {
-      this._closeMarketDataStream();
-    }
+    candlesSubscriptions = candlesSubscriptions.filter(
+      (sub) => sub !== subscription
+    );
+    this.closeMarketDataStreamIfNeeded();
 
     if (marketDataStream) {
       this.Logger.debug(
@@ -82,6 +91,60 @@ export class TinkoffMarketService implements IMarketService {
               interval: subscription.options.interval,
             },
           ],
+          subscriptionAction: "SUBSCRIPTION_ACTION_UNSUBSCRIBE",
+        },
+      });
+    }
+  }
+
+  subscribeLastPrice(
+    fn: LastPriceSubscription,
+    options: LastPriceSubscriptionOptions
+  ) {
+    if (!marketDataStream) {
+      this._openMarketDataStream();
+    }
+
+    if (!marketDataStream) {
+      this.Logger.error(this.TAG, "FATAL! Market must be opened!");
+      throw new Error("FATAL! Market must be opened!");
+    }
+
+    this.Logger.debug(
+      this.TAG,
+      `Subscribe last price: ${JSON.stringify(options)}`
+    );
+    lastPricesSubscriptions.push({ sub: fn, options });
+    marketDataStream.write({
+      subscribeLastPriceRequest: {
+        instruments: [{ figi: options.figi }],
+        subscriptionAction: "SUBSCRIPTION_ACTION_SUBSCRIBE",
+      },
+    });
+
+    return fn;
+  }
+
+  unsubscribeLastPrice(fn: LastPriceSubscription) {
+    const subscription = lastPricesSubscriptions.find((sub) => sub.sub === fn);
+    if (!subscription) {
+      return;
+    }
+
+    lastPricesSubscriptions = lastPricesSubscriptions.filter(
+      (sub) => sub !== subscription
+    );
+    this.closeMarketDataStreamIfNeeded();
+
+    this.Logger.debug(
+      this.TAG,
+      `Unsubscribe last price: ${JSON.stringify(subscription.options)}`
+    );
+
+    if (marketDataStream) {
+      marketDataStream.write({
+        subscribeLastPriceRequest: {
+          instruments: [{ figi: subscription.options.figi }],
           subscriptionAction: "SUBSCRIPTION_ACTION_UNSUBSCRIBE",
         },
       });
@@ -193,19 +256,29 @@ export class TinkoffMarketService implements IMarketService {
     marketDataStream.on("data", function (feature: any) {
       if (feature.payload === "candle") {
         const candle = self._parseCandle(feature.candle);
-        subscriptions.forEach((sub) => {
-          self.Logger.debug(
-            self.TAG,
-            `<< Get candle: ${JSON.stringify(candle)}`
-          );
+        self.Logger.debug(self.TAG, `<< Get candle: ${JSON.stringify(candle)}`);
+
+        candlesSubscriptions.forEach((sub) => {
           sub.sub(candle);
+        });
+      }
+
+      if (feature.payload === "lastPrice") {
+        const price = self._parseLastPrice(feature.lastPrice);
+        self.Logger.debug(self.TAG, `<< Get last price: ${price.toString()}`);
+
+        lastPricesSubscriptions.forEach((sub) => {
+          sub.sub(price);
         });
       }
     });
   }
 
-  _closeMarketDataStream() {
-    if (marketDataStream) {
+  private closeMarketDataStreamIfNeeded() {
+    if (
+      candlesSubscriptions.length === 0 &&
+      lastPricesSubscriptions.length === 0
+    ) {
       marketDataStream.destroy();
       marketDataStream = undefined;
     }
@@ -232,6 +305,10 @@ export class TinkoffMarketService implements IMarketService {
       time: TimestampUtils.toDate(feature.time).getTime(),
       isComplete: feature.isComplete,
     };
+  }
+
+  _parseLastPrice(feature: any): Big {
+    return QuotationUtils.toBig(feature.price);
   }
 }
 
