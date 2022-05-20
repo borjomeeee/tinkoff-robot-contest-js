@@ -78,11 +78,18 @@ export class TinkoffMarketService implements IMarketService {
     );
     this.closeMarketDataStreamIfNeeded();
 
-    if (marketDataStream) {
-      this.Logger.debug(
-        this.TAG,
-        `Unsubscribe candles: ${JSON.stringify(subscription.options)}`
-      );
+    this.Logger.debug(
+      this.TAG,
+      `Unsubscribe candles: ${JSON.stringify(subscription.options)}`
+    );
+
+    const usedByAnotherSub = candlesSubscriptions.some(
+      ({ options }) =>
+        options.figi === subscription.options.figi &&
+        options.interval === subscription.options.interval
+    );
+
+    if (marketDataStream && !usedByAnotherSub) {
       marketDataStream.write({
         subscribeCandlesRequest: {
           instruments: [
@@ -141,7 +148,10 @@ export class TinkoffMarketService implements IMarketService {
       `Unsubscribe last price: ${JSON.stringify(subscription.options)}`
     );
 
-    if (marketDataStream) {
+    const usedByAnotherSub = lastPricesSubscriptions.some(
+      ({ options }) => options.figi === subscription.options.figi
+    );
+    if (marketDataStream && !usedByAnotherSub) {
       marketDataStream.write({
         subscribeLastPriceRequest: {
           instruments: [{ figi: subscription.options.figi }],

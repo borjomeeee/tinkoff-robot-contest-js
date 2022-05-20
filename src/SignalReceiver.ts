@@ -21,12 +21,8 @@ import { OrderDirection } from "./CommonTypes";
 import { sleep, Terminatable } from "./Utils";
 import { TinkoffBetterSignalRealization } from "./Signal";
 
-interface TinkoffBetterSignalOrdersPair {
-  signal: IStockMarketRobotStrategySignal;
-
-  openOrderId: string;
-  closeOrderId?: string;
-}
+import { v5 as uuidv5, v4 as uuidv4 } from "uuid";
+import { Globals } from "./Globals";
 
 interface ITinkoffBetterSignalReceiverConfig {
   accountId: string;
@@ -54,8 +50,6 @@ export class TinkoffBetterSignalReceiver
   private postedOrders: string[] = [];
   private signalRealizations: Record<string, TinkoffBetterSignalRealization> =
     {};
-
-  private terminatable = new Terminatable();
 
   private config: ITinkoffBetterSignalReceiverConfig;
   constructor(config: ITinkoffBetterSignalReceiverConfig) {
@@ -92,10 +86,14 @@ export class TinkoffBetterSignalReceiver
 
   async receive(signal: IStockMarketRobotStrategySignal) {
     const { lotsPerBet, accountId } = this.config;
-    const { robotId } = signal;
+    const { robotId, instrumentFigi, lastCandle } = signal;
     this.Logger.debug(this.TAG, `Receive signal: ${JSON.stringify(signal)}`);
 
-    const signalId = robotId + "@" + signal.lastCandle.time.toString();
+    const signalId = uuidv5(
+      `${robotId}$${instrumentFigi}${lastCandle.time.toString()}`,
+      Globals.uuidNamespace
+    );
+
     const orderId = signalId;
 
     if (this.signalRealizations[signalId]) {
@@ -143,7 +141,7 @@ export class TinkoffBetterSignalReceiver
     try {
       this.startProcessingOrder();
 
-      const closingOrderId = robotId + "@" + Date.now().toString();
+      const closingOrderId = uuidv4();
       const closingOrder = await this.postOrder({
         instrumentFigi: signal.instrumentFigi,
         orderDirection:
@@ -172,7 +170,7 @@ export class TinkoffBetterSignalReceiver
       );
     } catch (e) {
       this.signalRealizations[signalId].handleCloseOrderError(e.message);
-      await this.closeOpenOrder(signalId);
+      await this.closeOpenOrder(signalOrderCompleted, signalId);
       return;
     } finally {
       this.stopProcessingOrder();
@@ -273,23 +271,26 @@ export class TinkoffBetterSignalReceiver
     }
   }
 
-  private async closeOpenOrder(signalId: string) {
+  private async closeOpenOrder(order: CompletedOrder, signalId: string) {
     const { services, accountId } = this.config;
     const { ordersService } = services;
 
-    const signalRealization = this.signalRealizations[signalId];
-    if (signalRealization && signalRealization.openOrderId) {
-      try {
-        this.startProcessingOrder();
-        return await ordersService.cancelOrder({
-          orderId: signalRealization.openOrderId,
-          accountId,
-        });
-      } catch (e) {
-        signalRealization.handleCancelOpenOrderError(e.message);
-      } finally {
-        this.stopProcessingOrder();
-      }
+    try {
+      this.startProcessingOrder();
+      return await ordersService.postMarketOrder({
+        instrumentFigi: order.instrumentFigi,
+        orderDirection:
+          order.direction === OrderDirection.BUY
+            ? OrderDirection.SELL
+            : OrderDirection.BUY,
+        lots: order.lots,
+        accountId,
+        orderId: uuidv4(),
+      });
+    } catch (e) {
+      this.signalRealizations[signalId]?.handleCancelOpenOrderError(e.message);
+    } finally {
+      this.stopProcessingOrder();
     }
   }
 }

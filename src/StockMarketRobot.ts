@@ -5,12 +5,7 @@ import {
   IStockMarketRobotStartOptions,
   IStockMarketRobotStrategySignal,
 } from "./Bot";
-import {
-  CandleInterval,
-  Instrument,
-  OrderDirection,
-  TradingDay,
-} from "./CommonTypes";
+import { CandleInterval, Instrument, OrderDirection } from "./CommonTypes";
 import { TerminateError } from "./Exceptions";
 import { Globals } from "./Globals";
 import { Logger } from "./Logger";
@@ -18,9 +13,7 @@ import { StrategyPredictResult } from "./Strategy";
 import {
   CandleUtils,
   DAY_IN_MS,
-  FIVE_MIN_IN_MS,
   HOUR_IN_MS,
-  MIN_IN_MS,
   sleep,
   Terminatable,
 } from "./Utils";
@@ -35,7 +28,7 @@ interface IStockMarketWorkOptions {
 }
 
 export class StockMarketRobot implements IStockMarketRobot {
-  id = "robot" + Date.now().toString();
+  id = "robot" + uuidv4();
   config: IStockMarketRobotConfig;
 
   TAG = "StockMarketRobot";
@@ -89,7 +82,6 @@ export class StockMarketRobot implements IStockMarketRobot {
         onStrategySignal({
           orderDirection: OrderDirection.BUY,
           instrumentFigi,
-          candleInterval,
           lastCandle,
           time: Date.now(),
           robotId: this.getId(),
@@ -103,7 +95,6 @@ export class StockMarketRobot implements IStockMarketRobot {
         onStrategySignal({
           orderDirection: OrderDirection.SELL,
           instrumentFigi,
-          candleInterval,
           lastCandle,
           time: Date.now(),
           robotId: this.getId(),
@@ -155,9 +146,8 @@ export class StockMarketRobot implements IStockMarketRobot {
             currentTradingDay.startTime &&
             currentTradingDay.endTime
           ) {
-            const nowTimeBeforeStart = Date.now();
             const timeBeforeStart = Math.min(
-              currentTradingDay.startTime - nowTimeBeforeStart,
+              currentTradingDay.startTime - Date.now(),
               0
             );
 
@@ -199,9 +189,9 @@ export class StockMarketRobot implements IStockMarketRobot {
       }
     } catch (e) {
       this.Logger.error(this.TAG, `Get error on running bot: ${e.message}`);
+    } finally {
+      this.stop();
     }
-
-    this.stop();
   }
 
   stop() {
@@ -236,7 +226,7 @@ export class StockMarketRobot implements IStockMarketRobot {
       throw new Error(`FATAL! Can't get api trading schedule days!`);
     }
 
-    // Return only today and tommorow
+    // Return only today and tommorrow
     return tradingSchedule.days.slice(0, 2);
   }
 

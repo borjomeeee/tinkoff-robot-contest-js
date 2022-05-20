@@ -9,14 +9,9 @@ import { TinkoffBetterSignalReceiver } from "./SignalReceiver";
 import { StockMarketRobot } from "./StockMarketRobot";
 import { BollingerBandsStrategy } from "./Strategy";
 import { TinkoffApiClient } from "./TinkoffApiClient";
-import {
-  FOUR_HOURS_IN_MS,
-  HOUR_IN_MS,
-  MIN_IN_MS,
-  SEC_IN_MS,
-  WEEK_IN_MS,
-} from "./Utils";
+import { FOUR_HOURS_IN_MS, HOUR_IN_MS, SEC_IN_MS, WEEK_IN_MS } from "./Utils";
 import { open, writeFile } from "node:fs/promises";
+import { v5 as uuidv5 } from "uuid";
 
 async function main() {
   if (typeof process.env.TINKOFF_API_TOKEN === "string") {
@@ -109,13 +104,14 @@ async function backtest() {
     //   candleHistory: historicalCandles,
     // });
 
-    client.sandbox.getSandboxOrderState(
-      {
-        orderId: "f13e3f07-59de-4443-bc26-bda4578cb7a4",
-        accountId: Globals.sandboxAccountId,
-      },
-      (e, v) => console.log(e, v)
-    );
+    // client.sandbox.getSandboxOrderState(
+    //   {
+    //     orderId: "f13e3f07-59de-4443-bc26-bda4578cb7a4",
+    //     accountId: Globals.sandboxAccountId,
+    //   },
+    //   (e, v) => console.log(e, v)
+    // );
+    console.log(uuidv5("Hello, world", Globals.uuidNamespace));
 
     // // client.instruments.shareBy(
     //   {

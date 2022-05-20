@@ -17,9 +17,8 @@ export interface IStockMarketRobotConfig {
 
 export interface IStockMarketRobotStrategySignal {
   instrumentFigi: string;
-  candleInterval: CandleInterval;
-
   orderDirection: OrderDirection;
+
   lastCandle: Candle;
 
   time: number;

@@ -16,4 +16,5 @@ export const Globals = {
   SBER_MOBX_FIGI: "BBG004730N88",
 
   sandboxAccountId: "b7291f16-812e-41e6-bf5c-1b211fd2ad5b",
+  uuidNamespace: "a6e6172e-2ad9-4004-a1ec-0014042ae153",
 };
