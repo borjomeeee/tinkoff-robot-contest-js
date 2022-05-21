@@ -9,8 +9,6 @@ import {
   IInstrumentsService,
   IMarketService,
   IOrdersService,
-  LastPriceSubscription,
-  PostMarketOrderOptions,
 } from "./Services/Types";
 import {
   CompletedOrder,
@@ -18,11 +16,12 @@ import {
   UncompletedOrder,
 } from "./Order";
 import { OrderDirection } from "./CommonTypes";
-import { sleep, Terminatable } from "./Utils";
-import { TinkoffBetterSignalRealization } from "./Signal";
+import { noop, sleep, Terminatable } from "./Utils";
+import { SignalRealization, SignalRealizationErrorReason } from "./Signal";
 
 import { v5 as uuidv5, v4 as uuidv4 } from "uuid";
 import { Globals } from "./Globals";
+import { StrategyPredictAction } from "./Strategy";
 
 interface ITinkoffBetterSignalReceiverConfig {
   accountId: string;
@@ -40,31 +39,34 @@ interface ITinkoffBetterSignalReceiverConfig {
   };
 }
 
+// TinkoffSignalResolverSample
 export class TinkoffBetterSignalReceiver
   implements IStockMarketRobotStrategySignalReceiver
 {
   TAG = "TinkoffBetterSignalReceiver";
   Logger = new Logger();
 
-  private orderRequests: Record<string, true> = {};
-  private postedOrders: string[] = [];
-  private signalRealizations: Record<string, TinkoffBetterSignalRealization> =
-    {};
+  private signalRealizations: Record<string, SignalRealization> = {};
 
   private config: ITinkoffBetterSignalReceiverConfig;
   constructor(config: ITinkoffBetterSignalReceiverConfig) {
     this.config = config;
   }
 
-  private processingOrders = 0;
+  private isWorking = false;
+  private isClosing = false;
+
+  private terminatable = new Terminatable();
+
+  private processingSignals = 0;
   private finishWaiters: (() => any)[] = [];
 
-  private startProcessingOrder() {
-    this.processingOrders++;
+  private startProcessingSignal() {
+    this.processingSignals++;
   }
-  private stopProcessingOrder() {
-    this.processingOrders--;
-    if (this.processingOrders === 0) {
+  private stopProcessingSignal() {
+    this.processingSignals--;
+    if (this.processingSignals === 0) {
       this.finishWaiters.forEach((waiter) => waiter());
       this.finishWaiters = [];
     }
@@ -74,19 +76,15 @@ export class TinkoffBetterSignalReceiver
     return this.signalRealizations;
   }
 
-  waitForFinishOrders() {
-    if (this.processingOrders === 0) {
+  async receive(signal: IStockMarketRobotStrategySignal) {
+    if (!this.isWorking || this.isClosing) {
       return;
     }
 
-    return new Promise<void>((res) => {
-      this.finishWaiters.push(res);
-    });
-  }
-
-  async receive(signal: IStockMarketRobotStrategySignal) {
-    const { lotsPerBet, accountId } = this.config;
+    const { lotsPerBet, accountId, services } = this.config;
     const { robotId, instrumentFigi, lastCandle } = signal;
+    const { ordersService } = services;
+
     this.Logger.debug(this.TAG, `Receive signal: ${JSON.stringify(signal)}`);
 
     const signalId = uuidv5(
@@ -94,90 +92,148 @@ export class TinkoffBetterSignalReceiver
       Globals.uuidNamespace
     );
 
-    const orderId = signalId;
-
     if (this.signalRealizations[signalId]) {
-      this.Logger.warn(this.TAG, "Reject duplication signal!");
+      this.Logger.warn(
+        this.TAG,
+        `Reject duplication signal: ${JSON.stringify(signalId)}`
+      );
       return;
     }
 
-    this.signalRealizations[signalId] = new TinkoffBetterSignalRealization(
-      signal
-    );
+    this.signalRealizations[signalId] = new SignalRealization(signal);
+    this.startProcessingSignal();
 
-    let signalOrderCompleted: CompletedOrder | undefined;
-    try {
-      this.startProcessingOrder();
-      const signalOrder = await this.postOrder({
-        instrumentFigi: signal.instrumentFigi,
-        orderDirection: signal.orderDirection,
-        lots: lotsPerBet,
-        accountId,
-        orderId,
+    // Post openOrder
+    const openOrderId = signalId;
+    const completedOpenOrder = await promisable()
+      .then(() =>
+        ordersService.postMarketOrder({
+          instrumentFigi: signal.instrumentFigi,
+          orderDirection:
+            signal.predictAction === StrategyPredictAction.BUY
+              ? OrderDirection.BUY
+              : OrderDirection.SELL,
+          lots: lotsPerBet,
+          accountId,
+          orderId: openOrderId,
+        })
+      )
+      .then((openOrder) => {
+        this.signalRealizations[signalId].setOpenOrderId(openOrder.id);
+        return this.waitForCompleteOrder(openOrder);
+      })
+      .catch((e) => {
+        this.signalRealizations[signalId].handleError(
+          SignalRealizationErrorReason.POST_OPEN_ORDER,
+          e.message
+        );
       });
 
-      this.signalRealizations[signalId].setOpenOrderId(signalOrder.id);
-
-      this.Logger.debug(
-        this.TAG,
-        `Waiting for order to completed: ${JSON.stringify(signalOrder)}`
-      );
-      signalOrderCompleted = await this.waitForCompleteOrder(signalOrder);
-      this.Logger.debug(
-        this.TAG,
-        `Waiting for order to completed successful: ${JSON.stringify(
-          signalOrder
-        )}`
-      );
-    } catch (e) {
-      this.signalRealizations[signalId].handleOpenOrderError(e.message);
+    // If get error post openOrder
+    if (!completedOpenOrder) {
+      this.stopProcessingSignal();
       return;
-    } finally {
-      this.stopProcessingOrder();
+    } else if (!this.isWorking) {
+      this.stopProcessingSignal();
+      this.signalRealizations[signalId].handleError(
+        SignalRealizationErrorReason.FATAL,
+        "Terminated after post openOrder!"
+      );
+      return;
     }
 
-    await this.waitForStopLossOrTakeProfit(signalOrderCompleted);
+    // Wait for resolver gets satisfy price
+    const waitForTakeProfitOrStopLossSuccessful =
+      await this.waitForCanStopLossOrTakeProfit(completedOpenOrder)
+        .then(() => true)
+        .catch((e) => {
+          this.signalRealizations[signalId].handleError(
+            SignalRealizationErrorReason.FATAL,
+            e.message
+          );
+          return false;
+        });
 
-    try {
-      this.startProcessingOrder();
+    // If get error on wait
+    if (!waitForTakeProfitOrStopLossSuccessful) {
+      this.stopProcessingSignal();
+      return;
+    } else if (!this.isWorking) {
+      this.stopProcessingSignal();
+      this.signalRealizations[signalId].handleError(
+        SignalRealizationErrorReason.FATAL,
+        "Terminated on get takeProfit/stopLoss signal!"
+      );
+      return;
+    }
 
-      const closingOrderId = uuidv4();
-      const closingOrder = await this.postOrder({
+    // Post closeOrder
+    const closeOrderId = uuidv4();
+    const completedCloseOrder = await ordersService
+      .postMarketOrder({
         instrumentFigi: signal.instrumentFigi,
         orderDirection:
-          signal.orderDirection === OrderDirection.BUY
+          signal.predictAction === StrategyPredictAction.BUY
             ? OrderDirection.SELL
             : OrderDirection.BUY,
         lots: lotsPerBet,
         accountId,
-        orderId: closingOrderId,
+        orderId: closeOrderId,
+      })
+      .then((closeOrder) => {
+        this.signalRealizations[signalId].setCloseOrderId(closeOrder.id);
+        return this.waitForCompleteOrder(closeOrder);
+      })
+      .catch((e) => {
+        this.signalRealizations[signalId].handleError(
+          SignalRealizationErrorReason.POST_CLOSE_ORDER,
+          e.message
+        );
       });
 
-      this.signalRealizations[signalId].setCloseOrderId(closingOrder.id);
-
-      this.Logger.debug(
-        this.TAG,
-        `Waiting for order to completed: ${JSON.stringify(closingOrder)}`
-      );
-
-      this.postedOrders.push(closingOrder.id);
-      await this.waitForCompleteOrder(closingOrder);
-      this.Logger.debug(
-        this.TAG,
-        `Waiting for order to completed successful: ${JSON.stringify(
-          closingOrder
-        )}`
-      );
-    } catch (e) {
-      this.signalRealizations[signalId].handleCloseOrderError(e.message);
-      await this.closeOpenOrder(signalOrderCompleted, signalId);
+    // If post closeOrder successful - finish signal processing
+    if (completedCloseOrder) {
+      this.stopProcessingSignal();
       return;
-    } finally {
-      this.stopProcessingOrder();
+    } else if (!this.isWorking) {
+      this.stopProcessingSignal();
+      this.signalRealizations[signalId].handleError(
+        SignalRealizationErrorReason.FATAL,
+        "Terminated after post closeOrder!"
+      );
+      return;
     }
+
+    // If post close order failed - cancel open order
+    const revertOpenOrderId = uuidv4();
+    await ordersService
+      .postMarketOrder({
+        instrumentFigi: completedOpenOrder.instrumentFigi,
+        orderDirection:
+          completedOpenOrder.direction === OrderDirection.BUY
+            ? OrderDirection.SELL
+            : OrderDirection.BUY,
+        lots: lotsPerBet,
+        accountId,
+        orderId: revertOpenOrderId,
+      })
+      .then((revertOpenOrder) => {
+        this.signalRealizations[signalId].setRevertOpenOrderId(
+          revertOpenOrder.id
+        );
+        return this.waitForCompleteOrder(revertOpenOrder);
+      })
+      .catch((e) => {
+        this.signalRealizations[signalId].handleError(
+          SignalRealizationErrorReason.REVERT_OPEN_ORDER,
+          e.message
+        );
+      });
+
+    this.stopProcessingSignal();
   }
 
-  private async waitForStopLossOrTakeProfit(order: CompletedOrder) {
+  private async waitForCanStopLossOrTakeProfit(order: CompletedOrder) {
     const { services, takeProfitPercent, stopLossPercent } = this.config;
     const { marketService, instrumentsService } = services;
 
@@ -192,39 +248,44 @@ export class TinkoffBetterSignalReceiver
     const takeProfit = instrumentPrice.mul(1 + takeProfitPercent / 100);
     const stopLoss = instrumentPrice.mul(1 - stopLossPercent / 100);
 
-    let instrumentLastPriceSub: LastPriceSubscription | undefined;
+    return await new Promise<void>((res) => {
+      if (!this.isWorking) {
+        res();
+        return;
+      }
 
-    try {
-      return await new Promise<void>((res) => {
-        instrumentLastPriceSub = marketService.subscribeLastPrice(
-          async (price) => {
-            if (takeProfit.lte(price) || stopLoss.gte(price)) {
-              this.Logger.debug(
-                this.TAG,
-                `Fix signal open order: ${JSON.stringify(order)}`
-              );
+      let unsubscribeLastPrice = noop;
+      unsubscribeLastPrice = marketService.subscribeLastPrice(
+        {
+          figi: order.instrumentFigi,
+        },
+        async (price) => {
+          if (takeProfit.lte(price) || stopLoss.gte(price)) {
+            this.Logger.debug(
+              this.TAG,
+              `Fix signal open order: ${JSON.stringify(order)}`
+            );
 
-              res();
-            }
-          },
-          {
-            figi: order.instrumentFigi,
+            unsubscribeLastPrice();
+            res();
           }
-        );
+        }
+      );
+
+      this.terminatable.notifyOnTerminate(() => {
+        unsubscribeLastPrice();
+        res();
       });
-    } finally {
-      instrumentLastPriceSub &&
-        marketService.unsubscribeLastPrice(instrumentLastPriceSub);
-    }
+    });
   }
 
   private async waitForCompleteOrder(
     order: UncompletedOrder
-  ): Promise<CompletedOrder> {
+  ): Promise<CompletedOrder | undefined> {
     const { services, accountId, updateOrderStateInterval } = this.config;
     const { ordersService } = services;
 
-    while (true) {
+    while (this.isWorking) {
       const currentOrderState = await ordersService.getOrderState({
         accountId,
         orderId: order.id,
@@ -247,7 +308,7 @@ export class TinkoffBetterSignalReceiver
         currentOrderState.status === OrderExecutionStatus.NEW ||
         currentOrderState.status === OrderExecutionStatus.PARTIALLY_COMPLETED
       ) {
-        await sleep(updateOrderStateInterval);
+        await sleep(updateOrderStateInterval, this.terminatable);
         continue;
       }
 
@@ -257,40 +318,36 @@ export class TinkoffBetterSignalReceiver
     }
   }
 
-  private async postOrder(
-    options: PostMarketOrderOptions
-  ): Promise<UncompletedOrder> {
-    const { services } = this.config;
-    const { ordersService } = services;
-
-    try {
-      this.orderRequests[options.orderId] = true;
-      return await ordersService.postMarketOrder(options);
-    } finally {
-      delete this.orderRequests[options.orderId];
-    }
+  start() {
+    this.isWorking = true;
+    this.isClosing = false;
   }
 
-  private async closeOpenOrder(order: CompletedOrder, signalId: string) {
-    const { services, accountId } = this.config;
-    const { ordersService } = services;
-
-    try {
-      this.startProcessingOrder();
-      return await ordersService.postMarketOrder({
-        instrumentFigi: order.instrumentFigi,
-        orderDirection:
-          order.direction === OrderDirection.BUY
-            ? OrderDirection.SELL
-            : OrderDirection.BUY,
-        lots: order.lots,
-        accountId,
-        orderId: uuidv4(),
-      });
-    } catch (e) {
-      this.signalRealizations[signalId]?.handleCancelOpenOrderError(e.message);
-    } finally {
-      this.stopProcessingOrder();
-    }
+  // Waits for all signal resolve
+  stop() {
+    this.isClosing = true;
+    return new Promise<void>((res) => {
+      if (this.processingSignals > 0) {
+        this.finishWaiters.push(() => {
+          this.isWorking = false;
+          res();
+        });
+      } else {
+        this.isWorking = false;
+        res();
+      }
+    });
   }
+
+  // Terminate all processing signals
+  forceStop() {
+    this.isWorking = false;
+    this.terminatable.terminate();
+
+    return this.stop();
+  }
+}
+
+function promisable() {
+  return new Promise<void>((res) => res());
 }

@@ -1,81 +1,73 @@
 import { IStockMarketRobotStrategySignal } from "./Bot";
 
-export enum TinkoffBetterSignalRealizationStatus {
-  IN_WORK = "in-work",
+export enum SignalRealizationErrorReason {
+  POST_OPEN_ORDER = "post-open-order",
+  POST_CLOSE_ORDER = "post-close-order",
+  REVERT_OPEN_ORDER = "revert-open-order",
+  FATAL = "falal",
+}
+export interface ISignalRealizationError {
+  reason: SignalRealizationErrorReason;
+  msg: string;
+}
 
-  FAILED_OPEN_ORDER = "failed-open-order",
-  FAILED_CLOSE_ORDER = "failed-close-order",
-  FAILED_CLOSE_ORDER_AND_CANCEL_OPEN_ORDER = "failed-close-order-and-open-order",
-
+export enum SignalRealizationStatus {
+  PROCESSING = "processing",
+  FAILED = "failed",
   SUCCESSFUL = "successful",
 }
 
-export interface ITinkoffBetterSignalRealization {
+export interface ISignalRealization {
   signal: IStockMarketRobotStrategySignal;
 
   openOrderId?: string;
-  openOrderError?: string;
-
   closeOrderId?: string;
-  closeOrderError?: string;
+  revertOpenOrderId?: string;
 
-  status: TinkoffBetterSignalRealizationStatus;
-  cancelOpenOrderError?: string;
+  status: SignalRealizationStatus;
+  error: ISignalRealizationError | null;
 }
 
-export class TinkoffBetterSignalRealization
-  implements ITinkoffBetterSignalRealization
-{
+export class SignalRealization implements ISignalRealization {
   signal: IStockMarketRobotStrategySignal;
 
   openOrderId?: string;
-  openOrderError?: string;
-
   closeOrderId?: string;
-  closeOrderError?: string;
+  revertOpenOrderId?: string;
 
-  status: TinkoffBetterSignalRealizationStatus;
-  cancelOpenOrderError?: string;
+  status: SignalRealizationStatus = SignalRealizationStatus.PROCESSING;
+  error: ISignalRealizationError | null = null;
 
   constructor(signal: IStockMarketRobotStrategySignal) {
     this.signal = signal;
-    this.status = TinkoffBetterSignalRealizationStatus.IN_WORK;
   }
 
   setOpenOrderId(orderId: string) {
     this.openOrderId = orderId;
   }
 
+  setRevertOpenOrderId(orderId: string) {
+    if (this.openOrderId) {
+      this.revertOpenOrderId = orderId;
+    } else {
+      throw new Error("Can't assign revertOpenOrder before openOrder!");
+    }
+  }
+
   setCloseOrderId(orderId: string) {
     if (this.openOrderId) {
       this.closeOrderId = orderId;
-      this.status = TinkoffBetterSignalRealizationStatus.SUCCESSFUL;
+      this.status = SignalRealizationStatus.SUCCESSFUL;
     } else {
-      throw new Error("Can't assign close order before start order!");
+      throw new Error("Can't assign closeOrder before openOrder!");
     }
   }
 
-  handleOpenOrderError(msg: string) {
-    this.openOrderError = msg;
-    this.status = TinkoffBetterSignalRealizationStatus.FAILED_OPEN_ORDER;
-  }
-
-  handleCloseOrderError(msg: string) {
-    this.closeOrderError = msg;
-    this.status = TinkoffBetterSignalRealizationStatus.FAILED_CLOSE_ORDER;
-  }
-
-  handleCancelOpenOrderError(msg: string) {
-    this.cancelOpenOrderError = msg;
-    if (
-      this.status === TinkoffBetterSignalRealizationStatus.FAILED_CLOSE_ORDER
-    ) {
-      this.status =
-        TinkoffBetterSignalRealizationStatus.FAILED_CLOSE_ORDER_AND_CANCEL_OPEN_ORDER;
-    } else {
-      throw new Error(
-        "Can't set cancel order error, before close order error!"
-      );
-    }
+  handleError(reason: SignalRealizationErrorReason, msg: string) {
+    this.status = SignalRealizationStatus.FAILED;
+    this.error = {
+      reason,
+      msg,
+    };
   }
 }

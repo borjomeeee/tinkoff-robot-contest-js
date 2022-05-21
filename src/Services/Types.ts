@@ -13,14 +13,14 @@ export interface IMarketService {
   subscribeCandles(
     options: CandleSubscriptionOptions,
     fn: CandleSupscription
-  ): CandleSupscription;
+  ): () => void;
 
   unsubscribeCandles(fn: CandleSupscription): void;
 
   subscribeLastPrice(
     options: LastPriceSubscriptionOptions,
     fn: LastPriceSubscription
-  ): LastPriceSubscription;
+  ): () => void;
 
   unsubscribeLastPrice(fn: LastPriceSubscription): void;
 

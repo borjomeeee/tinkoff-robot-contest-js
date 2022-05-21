@@ -61,6 +61,7 @@ async function main() {
         instrumentsService,
       },
     });
+    tinkoffBetter.start();
 
     await marketRobot.run({
       instrumentFigi: Globals.APPL_SPBX_FIGI,
@@ -70,7 +71,7 @@ async function main() {
       onStrategySignal: tinkoffBetter.receive.bind(tinkoffBetter),
     });
 
-    await tinkoffBetter.waitForFinishOrders();
+    await tinkoffBetter.forceStop();
     const signalRealizations = tinkoffBetter.getSignalRealizations();
 
     // Save better report

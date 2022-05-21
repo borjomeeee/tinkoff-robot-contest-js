@@ -16,8 +16,6 @@ import {
   GetAccountOrdersOptions,
   GetOrderStateOptions,
   IOrdersService,
-  OrderTradesSubscription,
-  OrderTradesSubscriptionOptions,
   PostLimitOrderOptions,
   PostMarketOrderOptions,
   PostOrderOptions,

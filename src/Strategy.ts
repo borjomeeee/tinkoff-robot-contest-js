@@ -1,14 +1,14 @@
 import Big from "big.js";
 import { Candle } from "./CommonTypes";
 
-export enum StrategyPredictResult {
-  STAY,
+export enum StrategyPredictAction {
   BUY,
   SELL,
 }
 
 export interface IStrategy {
-  predict: (candles: Candle[]) => StrategyPredictResult;
+  predict: (candles: Candle[]) => StrategyPredictAction | undefined;
+  toString: () => string;
 }
 
 interface BollingerBandsStrategyConfig {
@@ -46,13 +46,11 @@ export class BollingerBandsStrategy implements IStrategy {
 
       const lastCandle = candles[candles.length - 1];
       if (lastCandle.close.gte(upper_bb)) {
-        return StrategyPredictResult.BUY;
+        return StrategyPredictAction.BUY;
       } else if (lastCandle.close.lte(lower_bb)) {
-        return StrategyPredictResult.SELL;
+        return StrategyPredictAction.SELL;
       }
     } catch (ignored) {}
-
-    return StrategyPredictResult.STAY;
   }
 
   _get_sma(candles: Candle[], periods: number) {
@@ -75,5 +73,10 @@ export class BollingerBandsStrategy implements IStrategy {
       sum = sum.add(sma.minus(candle.close).pow(2));
     });
     return sum.div(periods).sqrt();
+  }
+
+  toString() {
+    const { deviation, periods } = this.config;
+    return `BollingerBands(deviation=${deviation}, periods=${periods})`;
   }
 }

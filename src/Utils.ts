@@ -21,11 +21,13 @@ export class Terminatable {
 
   terminate() {
     const self = this;
+
     this.notifyers.forEach((notify) => notify(self.error));
+    this.notifyers = [];
   }
 }
 
-export const noop = () => undefined;
+export const noop = (): void => undefined;
 export const sleep = (
   ms: number,
   terminatable: Terminatable | undefined = undefined

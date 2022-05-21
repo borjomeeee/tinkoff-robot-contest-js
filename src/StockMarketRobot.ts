@@ -5,11 +5,11 @@ import {
   IStockMarketRobotStartOptions,
   IStockMarketRobotStrategySignal,
 } from "./Bot";
-import { CandleInterval, Instrument, OrderDirection } from "./CommonTypes";
+import { CandleInterval, Instrument } from "./CommonTypes";
 import { TerminateError } from "./Exceptions";
 import { Globals } from "./Globals";
 import { Logger } from "./Logger";
-import { StrategyPredictResult } from "./Strategy";
+import { StrategyPredictAction } from "./Strategy";
 import {
   CandleUtils,
   DAY_IN_MS,
@@ -67,34 +67,38 @@ export class StockMarketRobot implements IStockMarketRobot {
       const lastCandleCloseTime = lastCandle.time + timeStep;
 
       // If last candle is not actual
-      if (Date.now() - lastCandleCloseTime > timeStep) {
+      if (Date.now() - lastCandleCloseTime >= timeStep) {
         await this.sleepIfRunning(Globals.tinkoffApiDdosInterval);
         continue;
       }
 
-      const predictResult = strategy.predict(lastCandles);
-      if (predictResult === StrategyPredictResult.BUY) {
+      const predictAction = strategy.predict(lastCandles);
+      if (predictAction === StrategyPredictAction.BUY) {
         this.Logger.debug(
           this.TAG,
           `Get buy signal on candle: ${JSON.stringify(lastCandle)}`
         );
 
         onStrategySignal({
-          orderDirection: OrderDirection.BUY,
+          strategy: strategy.toString(),
+          predictAction,
           instrumentFigi,
+          candleInterval,
           lastCandle,
           time: Date.now(),
           robotId: this.getId(),
         });
-      } else if (predictResult === StrategyPredictResult.SELL) {
+      } else if (predictAction === StrategyPredictAction.SELL) {
         this.Logger.debug(
           this.TAG,
           `Get sell signal on candle: ${JSON.stringify(lastCandle)}`
         );
 
         onStrategySignal({
-          orderDirection: OrderDirection.SELL,
+          strategy: strategy.toString(),
+          predictAction,
           instrumentFigi,
+          candleInterval,
           lastCandle,
           time: Date.now(),
           robotId: this.getId(),

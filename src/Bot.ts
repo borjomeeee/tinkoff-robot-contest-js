@@ -1,6 +1,6 @@
 import { Candle, CandleInterval, OrderDirection } from "./CommonTypes";
 import { IInstrumentsService, IMarketService } from "./Services/Types";
-import { IStrategy } from "./Strategy";
+import { IStrategy, StrategyPredictAction } from "./Strategy";
 
 export interface IStockMarketRobotConfig {
   strategy: IStrategy;
@@ -16,13 +16,18 @@ export interface IStockMarketRobotConfig {
 }
 
 export interface IStockMarketRobotStrategySignal {
+  // Strategy info
+  strategy: string;
+  predictAction: StrategyPredictAction;
+
+  // Instrument info
   instrumentFigi: string;
-  orderDirection: OrderDirection;
+  candleInterval: CandleInterval;
 
-  lastCandle: Candle;
-
+  // Identification info
   time: number;
   robotId: string;
+  lastCandle: Candle;
 }
 
 export interface IStockMarketRobotStartOptions {
