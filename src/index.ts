@@ -1,22 +1,28 @@
 import "dotenv/config";
-import { CandleInterval, OrderDirection } from "./CommonTypes";
-import { Globals } from "./Globals";
-import { Logger } from "./Logger";
-import { TinkoffInstrumentsService } from "./Services/InstrumentsService";
-import { TinkoffMarketService } from "./Services/MarketService";
-import { TinkoffOrdersService } from "./Services/OrdersService";
-import { TinkoffBetterSignalReceiver } from "./SignalReceiver";
-import { StockMarketRobot } from "./StockMarketRobot";
-import { BollingerBandsStrategy } from "./Strategy";
-import { TinkoffApiClient } from "./TinkoffApiClient";
-import { DAY_IN_MS, HOUR_IN_MS, SEC_IN_MS, WEEK_IN_MS } from "./Utils";
-import { open, writeFile } from "node:fs/promises";
-import { Backtester } from "./Services/Backtester";
-import { BacktestingOrdersService } from "./Services/BacktestingOrdersService";
-import { BacktestingMarketDataStream } from "./Services/BacktestingMarketService";
-import { TinkoffMarketDataStream } from "./Services/MarketDataStream";
+
 import Big from "big.js";
-import { LoggerLevel } from "./LoggerTypes";
+import { CandleInterval, OrderDirection } from "./Types/Common";
+import { Globals } from "./Globals";
+import { Logger, LoggerLevel } from "./Helpers/Logger";
+
+import { StockMarketRobot } from "./StockMarketRobot";
+import { TinkoffApiClient } from "./TinkoffApiClient";
+import { DAY_IN_MS, HOUR_IN_MS, SEC_IN_MS, WEEK_IN_MS } from "./Helpers/Utils";
+import { open, writeFile } from "node:fs/promises";
+import { Backtester } from "./Backtester";
+import { BacktestingOrdersService } from "./Services/BacktestingOrdersService";
+import { BacktestingMarketDataStream } from "./Services/BacktestingMarketDataStream";
+import { TinkoffInstrumentsService } from "./Services/TinkoffInstrumentsService";
+import { TinkoffMarketService } from "./Services/TinkoffMarketService";
+import { TinkoffMarketDataStream } from "./Services/TinkoffMarketDataStream";
+import { TinkoffOrdersService } from "./Services/TinkoffOrdersService";
+import { BollingerBandsStrategy } from "./Strategies/BollingerBands";
+import { SampleSignalResolver } from "./SignalReceivers/SampleSignalResolver";
+
+
+// TODO:
+// - add comments
+// - set starting via config
 
 async function main() {
   if (typeof process.env.TINKOFF_API_TOKEN === "string") {
@@ -51,7 +57,7 @@ async function main() {
       },
     });
 
-    const tinkoffBetter = new TinkoffBetterSignalReceiver({
+    const signalResolver = new SampleSignalResolver({
       accountId: Globals.sandboxAccountId,
 
       lotsPerBet: 1,
@@ -68,18 +74,18 @@ async function main() {
         instrumentsService,
       },
     });
-    tinkoffBetter.start();
+    signalResolver.start();
 
     await marketRobot.run({
       instrumentFigi: Globals.APPL_SPBX_FIGI,
       candleInterval: CandleInterval.CANDLE_INTERVAL_1_MIN,
       terminateAt: Date.now() + HOUR_IN_MS,
 
-      onStrategySignal: tinkoffBetter.receive.bind(tinkoffBetter),
+      onStrategySignal: signalResolver.receive.bind(signalResolver),
     });
 
-    await tinkoffBetter.forceStop();
-    const signalRealizations = tinkoffBetter.getSignalRealizations();
+    await signalResolver.forceStop();
+    const signalRealizations = signalResolver.getSignalRealizations();
 
     // Save better report
     const file = await open(`report-${startIsoDate}.json`, "w");
@@ -105,7 +111,12 @@ async function backtest() {
     const marketDataStream = new BacktestingMarketDataStream();
     const ordersService = new BacktestingOrdersService({ commission: 0.0003 });
 
-    const tinkoffBetter = new TinkoffBetterSignalReceiver({
+    // Preload instrument
+    await instrumentsService.getInstrumentByFigi({
+      figi: Globals.APPL_SPBX_FIGI,
+    });
+
+    const signalResolver = new SampleSignalResolver({
       accountId: Globals.sandboxAccountId,
 
       lotsPerBet: 1,
@@ -123,7 +134,7 @@ async function backtest() {
         marketDataStream,
       },
     });
-    tinkoffBetter.start();
+    signalResolver.start();
 
     const backtester = await Backtester.of({
       instrumentFigi: Globals.APPL_SPBX_FIGI,
@@ -131,18 +142,20 @@ async function backtest() {
       amount: 1_000,
       candleInterval: CandleInterval.CANDLE_INTERVAL_15_MIN,
 
-      marketService,
-      marketDataStream,
+      services: {
+        marketService,
+        marketDataStream,
+      },
 
       commission: 0.0003,
     });
 
     await backtester.run({
       strategy: new BollingerBandsStrategy({ periods: 20, deviation: 2 }),
-      signalReceiver: tinkoffBetter,
+      signalReceiver: signalResolver,
     });
 
-    await tinkoffBetter.forceStop();
+    await signalResolver.forceStop();
 
     const postedOrders = ordersService.getPostedOrders();
     console.log("Total posted orders: ", postedOrders.size);

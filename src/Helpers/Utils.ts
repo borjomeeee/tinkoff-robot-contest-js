@@ -1,9 +1,13 @@
 import Big from "big.js";
-import { stat } from "fs";
-import { CandleInterval, OrderDirection, Quotation } from "./CommonTypes";
+import {
+  CandleInterval,
+  OrderDirection,
+  Quotation,
+  Timestamp,
+} from "../Types/Common";
 import { TerminateError } from "./Exceptions";
-import { Globals } from "./Globals";
-import { OrderExecutionStatus } from "./Order";
+import { Globals } from "../Globals";
+import { OrderExecutionStatus } from "../Types/Order";
 
 export class Terminatable {
   isTerminated = false;
@@ -51,12 +55,6 @@ export const HOUR_IN_MS = MIN_IN_MS * 60;
 export const FOUR_HOURS_IN_MS = 4 * HOUR_IN_MS;
 export const DAY_IN_MS = HOUR_IN_MS * 24;
 export const WEEK_IN_MS = DAY_IN_MS * 7;
-
-export enum CompareResult {
-  EQUALS,
-  BIGGER,
-  SMALLER,
-}
 
 export class QuotationUtils {
   static toBig(quotation: Quotation) {
@@ -117,6 +115,20 @@ export class OrdersUtils {
 export class CandleUtils {
   static getCandleTimeStepByInterval(interval: CandleInterval) {
     return candleTimeStep[interval];
+  }
+}
+
+export class TimestampUtils {
+  static fromDate(date: Date): Timestamp {
+    const time = date.getTime();
+    const seconds = time / 1000;
+
+    return { seconds: Math.floor(seconds).toString(), nanos: 0 };
+  }
+
+  static toDate(timestamp: Timestamp) {
+    const nanos = +timestamp.nanos.toString().slice(0, 3);
+    return new Date(+timestamp.seconds * 1000 + nanos);
   }
 }
 

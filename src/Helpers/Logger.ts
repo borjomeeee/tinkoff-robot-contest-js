@@ -1,6 +1,13 @@
 import { appendFile } from "fs/promises";
 import { open, FileHandle } from "node:fs/promises";
-import { LoggerLevel } from "./LoggerTypes";
+
+export enum LoggerLevel {
+  DEBUG,
+  WARN,
+  ERROR,
+  DISABLED,
+}
+
 export interface ILogger {
   warn: (tag: string, message: string) => void;
   debug: (tag: string, message: string) => void;
@@ -9,6 +16,7 @@ export interface ILogger {
 
 let file: FileHandle | undefined = undefined;
 let globalLevel = LoggerLevel.DEBUG;
+
 export class Logger implements ILogger {
   private level: LoggerLevel;
 

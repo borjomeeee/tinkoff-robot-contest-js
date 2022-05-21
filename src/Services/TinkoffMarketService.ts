@@ -1,6 +1,6 @@
-import { CandleInterval, HistoricalCandle } from "../CommonTypes";
-import { Logger } from "../Logger";
-import { TimestampUtils } from "../Timestamp";
+import { CandleInterval, HistoricalCandle } from "../Types/Common";
+import { Logger } from "../Helpers/Logger";
+import { TimestampUtils } from "../Helpers/Utils";
 import { TinkoffApiClient } from "../TinkoffApiClient";
 import {
   CandleUtils,
@@ -9,12 +9,12 @@ import {
   HOUR_IN_MS,
   QuotationUtils,
   WEEK_IN_MS,
-} from "../Utils";
+} from "../Helpers/Utils";
 import {
-  IMarketService,
-  GetLastCandlesOptions,
   GetCandlesOptions,
-} from "./Types";
+  GetLastCandlesOptions,
+  IMarketService,
+} from "./IMarketService";
 
 export class TinkoffMarketService implements IMarketService {
   TAG = "TinkoffMarketService";

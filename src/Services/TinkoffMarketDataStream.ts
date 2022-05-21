@@ -1,15 +1,15 @@
-import { Candle } from "../CommonTypes";
-import { Logger } from "../Logger";
-import { TimestampUtils } from "../Timestamp";
+import { Candle } from "../Types/Common";
+import { Logger } from "../Helpers/Logger";
+import { TimestampUtils } from "../Helpers/Utils";
 import { TinkoffApiClient } from "../TinkoffApiClient";
-import { QuotationUtils } from "../Utils";
+import { QuotationUtils } from "../Helpers/Utils";
 import {
   CandleSubscriptionOptions,
   CandleSupscription,
   IMarketDataStream,
   LastPriceSubscription,
   LastPriceSubscriptionOptions,
-} from "./Types";
+} from "./IMarketDataStream";
 
 const candlesSubscriptions: Map<CandleSupscription, CandleSubscriptionOptions> =
   new Map();

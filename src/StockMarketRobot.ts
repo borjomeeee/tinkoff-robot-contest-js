@@ -1,22 +1,43 @@
 import { v4 as uuidv4 } from "uuid";
-import {
-  IStockMarketRobot,
-  IStockMarketRobotConfig,
-  IStockMarketRobotStartOptions,
-  IStockMarketRobotStrategySignal,
-} from "./Bot";
-import { CandleInterval, Instrument } from "./CommonTypes";
-import { TerminateError } from "./Exceptions";
+import { IStockMarketRobotStrategySignal } from "./StockMarketRobotTypes";
+import { CandleInterval, Instrument } from "./Types/Common";
+import { TerminateError } from "./Helpers/Exceptions";
 import { Globals } from "./Globals";
-import { Logger } from "./Logger";
-import { StrategyPredictAction } from "./Strategy";
+import { Logger } from "./Helpers/Logger";
+import { IStrategy, StrategyPredictAction } from "./Types/Strategy";
 import {
   CandleUtils,
   DAY_IN_MS,
   HOUR_IN_MS,
   sleep,
   Terminatable,
-} from "./Utils";
+} from "./Helpers/Utils";
+
+import { IMarketService } from "./Services/IMarketService";
+import { IInstrumentsService } from "./Services/IInsrumentsService";
+
+export interface IStockMarketRobotConfig {
+  strategy: IStrategy;
+
+  // Сколько требуется свечей чтобы стратегия дала предикт
+  numberCandlesToApplyStrategy: number;
+  minimalCandleTime: number;
+
+  services: {
+    marketService: IMarketService;
+    instrumentsService: IInstrumentsService;
+  };
+}
+
+export interface IStockMarketRobotStartOptions {
+  instrumentFigi: string;
+  candleInterval: CandleInterval;
+
+  onStrategySignal: (info: IStockMarketRobotStrategySignal) => void;
+
+  // Таймстемп когда бот должен завершить свою работу
+  terminateAt?: number;
+}
 
 interface IStockMarketWorkOptions {
   instrumentFigi: string;
@@ -27,9 +48,9 @@ interface IStockMarketWorkOptions {
   endTime: number;
 }
 
-export class StockMarketRobot implements IStockMarketRobot {
-  id = "robot" + uuidv4();
-  config: IStockMarketRobotConfig;
+export class StockMarketRobot {
+  private id = "robot" + uuidv4();
+  private config: IStockMarketRobotConfig;
 
   TAG = "StockMarketRobot";
   Logger = new Logger();
@@ -41,7 +62,7 @@ export class StockMarketRobot implements IStockMarketRobot {
     this.config = config;
   }
 
-  async work(options: IStockMarketWorkOptions) {
+  private async work(options: IStockMarketWorkOptions) {
     const {
       services: { marketService },
       strategy,
@@ -210,7 +231,7 @@ export class StockMarketRobot implements IStockMarketRobot {
     }
   }
 
-  getId() {
+  private getId() {
     return this.id;
   }
 

@@ -1,5 +1,5 @@
 import Big from "big.js";
-import { OrderDirection } from "./CommonTypes";
+import { OrderDirection } from "./Common";
 
 export enum OrderExecutionStatus {
   COMPLETED,

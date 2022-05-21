@@ -5,6 +5,11 @@ export enum OrderDirection {
   SELL = "sell",
 }
 
+export interface Timestamp {
+  seconds: string;
+  nanos: number;
+}
+
 export interface Quotation {
   units: string;
   nano: number;

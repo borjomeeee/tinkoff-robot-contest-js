@@ -5,12 +5,12 @@ import { OrderState__Output } from "@tinkoff/invest-js/build/generated/tinkoff/p
 import { PostOrderRequest } from "@tinkoff/invest-js/build/generated/tinkoff/public/invest/api/contract/v1/PostOrderRequest";
 import { PostOrderResponse__Output } from "@tinkoff/invest-js/build/generated/tinkoff/public/invest/api/contract/v1/PostOrderResponse";
 
-import { OrderDirection } from "../CommonTypes";
-import { Logger } from "../Logger";
-import { Order, UncompletedOrder } from "../Order";
-import { TimestampUtils } from "../Timestamp";
+import { OrderDirection } from "../Types/Common";
+import { Logger } from "../Helpers/Logger";
+import { Order, UncompletedOrder } from "../Types/Order";
+import { TimestampUtils } from "../Helpers/Utils";
 import { TinkoffApiClient } from "../TinkoffApiClient";
-import { OrdersUtils, QuotationUtils } from "../Utils";
+import { OrdersUtils, QuotationUtils } from "../Helpers/Utils";
 import {
   CancelOrderOptions,
   GetAccountOrdersOptions,
@@ -19,7 +19,7 @@ import {
   PostLimitOrderOptions,
   PostMarketOrderOptions,
   PostOrderOptions,
-} from "./Types";
+} from "./IOrdersService";
 
 interface ITinkoffOrdersServiceConstructorOptions {
   client: TinkoffApiClient;
@@ -234,7 +234,7 @@ export class TinkoffOrdersService implements IOrdersService {
       totalPrice: feature.executedOrderPrice
         ? QuotationUtils.toBig(feature.executedOrderPrice)
         : undefined,
-      totalCommision: feature.executedCommission
+      totalCommission: feature.executedCommission
         ? QuotationUtils.toBig(feature.executedCommission)
         : undefined,
 

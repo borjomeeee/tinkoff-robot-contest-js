@@ -3,12 +3,12 @@ import {
   CompletedOrder,
   OrderExecutionStatus,
   UncompletedOrder,
-} from "../Order";
+} from "../Types/Order";
 import {
   GetOrderStateOptions,
   IOrdersService,
   PostMarketOrderOptions,
-} from "./Types";
+} from "./IOrdersService";
 
 interface IBacktestingOrdersServiceConfig {
   commission: number;

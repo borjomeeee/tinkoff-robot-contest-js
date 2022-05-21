@@ -1,14 +1,9 @@
-import {
-  Candle,
-  CandleInterval,
-  Instrument,
-  OrderDirection,
-} from "../CommonTypes";
-import { IStrategy } from "../Strategy";
-
-import { IStockMarketRobotStrategySignalReceiver } from "../Bot";
-import { IBacktestMarketDataStream, IMarketService } from "./Types";
-import { sleep } from "../Utils";
+import { IStockMarketRobotStrategySignalReceiver } from "./StockMarketRobotTypes";
+import { Candle, CandleInterval } from "./Types/Common";
+import { IStrategy } from "./Types/Strategy";
+import { sleep } from "./Helpers/Utils";
+import { IBacktestMarketDataStream } from "./Services/IBacktestMarketDataStream";
+import { IMarketService } from "./Services/IMarketService";
 
 interface IBacktesterConfig {
   instrumentFigi: string;
@@ -16,8 +11,8 @@ interface IBacktesterConfig {
 
   candlesHistory: Candle[];
 
-  marketDataStream: IBacktestMarketDataStream;
   commission: number;
+  marketDataStream: IBacktestMarketDataStream;
 }
 
 interface IBacktesterBuildOptions {
@@ -27,8 +22,10 @@ interface IBacktesterBuildOptions {
   from: Date;
   amount: number;
 
-  marketService: IMarketService;
-  marketDataStream: IBacktestMarketDataStream;
+  services: {
+    marketService: IMarketService;
+    marketDataStream: IBacktestMarketDataStream;
+  };
 
   commission: number;
 }
@@ -47,14 +44,14 @@ export class Backtester {
 
   static async of(options: IBacktesterBuildOptions) {
     const {
-      marketDataStream,
-      marketService,
+      services,
       instrumentFigi,
       from,
       amount,
       candleInterval,
       commission,
     } = options;
+    const { marketDataStream, marketService } = services;
 
     const candlesHistory = await marketService.getLastCandles({
       instrumentFigi,
@@ -77,7 +74,7 @@ export class Backtester {
       this.config;
     const { strategy, signalReceiver } = options;
 
-    const candlesForApply = strategy.getMinimalCandlesNumber();
+    const candlesForApply = strategy.getMinimalCandlesNumberToApply();
     for (let i = candlesForApply; i < candlesHistory.length; i++) {
       const candles = candlesHistory.slice(i, candlesForApply + i);
       const predictAction = strategy.predict(candles);
@@ -98,7 +95,6 @@ export class Backtester {
         instrumentFigi
       );
       marketDataStream.sendLastPrice(lastCandle.high, instrumentFigi);
-      // marketDataStream.sendCandle(lastCandle, instrumentFigi);
 
       if (predictAction) {
         signalReceiver.receive({
@@ -112,6 +108,7 @@ export class Backtester {
         });
       }
 
+      // Need to receiver make subscriptions
       await sleep(10);
     }
   }

@@ -1,14 +1,15 @@
-import { Instrument, TradingDay, TradingSchedule } from "../CommonTypes";
-import { Logger } from "../Logger";
-import { TimestampUtils } from "../Timestamp";
+import { Instrument, TradingDay, TradingSchedule } from "../Types/Common";
+import { Logger } from "../Helpers/Logger";
+import { TimestampUtils } from "../Helpers/Utils";
 
 import { InstrumentRequest } from "@tinkoff/invest-js/build/generated/tinkoff/public/invest/api/contract/v1/InstrumentRequest";
+
+import { TinkoffApiClient } from "../TinkoffApiClient";
 import {
-  IInstrumentsService,
   GetInstrumentByFigiOptions,
   GetInstrumentTradingScheduleOptions,
-} from "./Types";
-import { TinkoffApiClient } from "../TinkoffApiClient";
+  IInstrumentsService,
+} from "./IInsrumentsService";
 
 let instrumentsCache: Map<string, Instrument> = new Map();
 export class TinkoffInstrumentsService implements IInstrumentsService {

@@ -1,9 +1,9 @@
 import Big from "big.js";
+import { IBacktestMarketDataStream } from "./IBacktestMarketDataStream";
 import {
-  IBacktestMarketDataStream,
   LastPriceSubscription,
   LastPriceSubscriptionOptions,
-} from "./Types";
+} from "./IMarketDataStream";
 
 let lastPricesSubscriptions: Map<
   LastPriceSubscription,

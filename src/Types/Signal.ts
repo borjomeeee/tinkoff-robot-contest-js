@@ -1,4 +1,4 @@
-import { IStockMarketRobotStrategySignal } from "./Bot";
+import { IStockMarketRobotStrategySignal } from "../StockMarketRobotTypes";
 
 export enum SignalRealizationErrorReason {
   POST_OPEN_ORDER = "post-open-order",

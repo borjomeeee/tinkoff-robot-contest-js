@@ -1,17 +1,6 @@
 import Big from "big.js";
-import { Candle } from "./CommonTypes";
-
-export enum StrategyPredictAction {
-  BUY = "buy",
-  SELL = "sell",
-}
-
-export interface IStrategy {
-  predict: (candles: Candle[]) => StrategyPredictAction | undefined;
-  getMinimalCandlesNumber: () => number;
-
-  toString: () => string;
-}
+import { Candle } from "../Types/Common";
+import { IStrategy, StrategyPredictAction } from "../Types/Strategy";
 
 interface BollingerBandsStrategyConfig {
   periods: number;
@@ -77,7 +66,7 @@ export class BollingerBandsStrategy implements IStrategy {
     return sum.div(periods).sqrt();
   }
 
-  getMinimalCandlesNumber() {
+  getMinimalCandlesNumberToApply() {
     return this.config.periods;
   }
 

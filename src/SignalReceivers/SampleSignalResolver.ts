@@ -1,30 +1,29 @@
 import {
-  IStockMarketRobotStrategySignal,
-  IStockMarketRobotStrategySignalReceiver,
-} from "./Bot";
-
-import { Logger } from "./Logger";
-
-import {
-  IInstrumentsService,
-  IMarketDataStream,
-  IOrdersService,
-} from "./Services/Types";
-import {
   CompletedOrder,
   OrderExecutionStatus,
   UncompletedOrder,
-} from "./Order";
-import { OrderDirection } from "./CommonTypes";
-import { noop, sleep, Terminatable } from "./Utils";
-import { SignalRealization, SignalRealizationErrorReason } from "./Signal";
+} from "../Types/Order";
+import { OrderDirection } from "../Types/Common";
+import { noop, sleep, Terminatable } from "../Helpers/Utils";
+import {
+  SignalRealization,
+  SignalRealizationErrorReason,
+} from "../Types/Signal";
 
-import { v5 as uuidv5, v4 as uuidv4 } from "uuid";
-import { Globals } from "./Globals";
-import { StrategyPredictAction } from "./Strategy";
 import Big from "big.js";
+import { v5 as uuidv5, v4 as uuidv4 } from "uuid";
+import { Globals } from "../Globals";
+import { StrategyPredictAction } from "../Types/Strategy";
+import { IOrdersService } from "../Services/IOrdersService";
+import { IMarketDataStream } from "../Services/IMarketDataStream";
+import { IInstrumentsService } from "../Services/IInsrumentsService";
+import {
+  IStockMarketRobotStrategySignal,
+  IStockMarketRobotStrategySignalReceiver,
+} from "../StockMarketRobotTypes";
+import { Logger } from "../Helpers/Logger";
 
-interface ITinkoffBetterSignalReceiverConfig {
+interface ISampleSignalResolverConfig {
   accountId: string;
 
   lotsPerBet: number;
@@ -43,17 +42,16 @@ interface ITinkoffBetterSignalReceiverConfig {
   };
 }
 
-// TinkoffSignalResolverSample
-export class TinkoffBetterSignalReceiver
+export class SampleSignalResolver
   implements IStockMarketRobotStrategySignalReceiver
 {
-  TAG = "TinkoffBetterSignalReceiver";
+  TAG = "SampleSignalResolver";
   Logger = new Logger();
 
   private signalRealizations: Record<string, SignalRealization> = {};
 
-  private config: ITinkoffBetterSignalReceiverConfig;
-  constructor(config: ITinkoffBetterSignalReceiverConfig) {
+  private config: ISampleSignalResolverConfig;
+  constructor(config: ISampleSignalResolverConfig) {
     this.config = config;
   }
 
@@ -273,7 +271,7 @@ export class TinkoffBetterSignalReceiver
             );
 
             unsubscribeLastPrice();
-            res(price);
+            res(lastPrice);
           }
         }
       );
@@ -329,7 +327,7 @@ export class TinkoffBetterSignalReceiver
     this.isClosing = false;
   }
 
-  // Waits for all signal resolve
+  // Waits for all signals resolves
   stop() {
     this.isClosing = true;
     return new Promise<void>((res) => {
