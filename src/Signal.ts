@@ -3,7 +3,6 @@ import { IStockMarketRobotStrategySignal } from "./Bot";
 export enum SignalRealizationErrorReason {
   POST_OPEN_ORDER = "post-open-order",
   POST_CLOSE_ORDER = "post-close-order",
-  REVERT_OPEN_ORDER = "revert-open-order",
   FATAL = "falal",
 }
 export interface ISignalRealizationError {
@@ -22,7 +21,6 @@ export interface ISignalRealization {
 
   openOrderId?: string;
   closeOrderId?: string;
-  revertOpenOrderId?: string;
 
   status: SignalRealizationStatus;
   error: ISignalRealizationError | null;
@@ -33,7 +31,6 @@ export class SignalRealization implements ISignalRealization {
 
   openOrderId?: string;
   closeOrderId?: string;
-  revertOpenOrderId?: string;
 
   status: SignalRealizationStatus = SignalRealizationStatus.PROCESSING;
   error: ISignalRealizationError | null = null;
@@ -44,14 +41,6 @@ export class SignalRealization implements ISignalRealization {
 
   setOpenOrderId(orderId: string) {
     this.openOrderId = orderId;
-  }
-
-  setRevertOpenOrderId(orderId: string) {
-    if (this.openOrderId) {
-      this.revertOpenOrderId = orderId;
-    } else {
-      throw new Error("Can't assign revertOpenOrder before openOrder!");
-    }
   }
 
   setCloseOrderId(orderId: string) {

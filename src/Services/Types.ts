@@ -10,13 +10,11 @@ import {
 import { Order, OrderTrade, UncompletedOrder } from "../Order";
 
 export interface IMarketService {
-  subscribeCandles(
-    options: CandleSubscriptionOptions,
-    fn: CandleSupscription
-  ): () => void;
+  getCandles(options: GetCandlesOptions): Promise<Candle[]>;
+  getLastCandles(options: GetLastCandlesOptions): Promise<Candle[]>;
+}
 
-  unsubscribeCandles(fn: CandleSupscription): void;
-
+export interface IMarketDataStream {
   subscribeLastPrice(
     options: LastPriceSubscriptionOptions,
     fn: LastPriceSubscription
@@ -24,8 +22,16 @@ export interface IMarketService {
 
   unsubscribeLastPrice(fn: LastPriceSubscription): void;
 
-  getCandles(options: GetCandlesOptions): Promise<Candle[]>;
-  getLastCandles(options: GetLastCandlesOptions): Promise<Candle[]>;
+  // subscribeCandles(
+  //   options: CandleSubscriptionOptions,
+  //   fn: CandleSupscription
+  // ): () => void;
+  // unsubscribeCandles(fn: CandleSupscription): void;
+}
+
+export interface IBacktestMarketDataStream extends IMarketDataStream {
+  sendLastPrice(price: Big, figi: string): void;
+  // sendCandle(candle: Candle, figi: string): void;
 }
 
 export interface IInstrumentsService {
@@ -39,12 +45,11 @@ export interface IOrdersService {
   postMarketOrder: (
     options: PostMarketOrderOptions
   ) => Promise<UncompletedOrder>;
-  postLimitOrder: (options: PostLimitOrderOptions) => Promise<UncompletedOrder>;
-
-  cancelOrder: (options: CancelOrderOptions) => Promise<void>;
+  // postLimitOrder: (options: PostLimitOrderOptions) => Promise<UncompletedOrder>;
+  // cancelOrder: (options: CancelOrderOptions) => Promise<void>;
 
   getOrderState: (options: GetOrderStateOptions) => Promise<Order>;
-  getAccountOrders: (options: GetAccountOrdersOptions) => Promise<Order[]>;
+  // getAccountOrders: (options: GetAccountOrdersOptions) => Promise<Order[]>;
 
   // subscribeOrderTrades: (
   //   fn: OrderTradesSubscription,
@@ -109,7 +114,10 @@ export interface PostOrderOptions {
   accountId: string;
 }
 
-export interface PostMarketOrderOptions extends PostOrderOptions {}
+export interface PostMarketOrderOptions extends PostOrderOptions {
+  // Backtesting option
+  _price?: Big;
+}
 export interface PostLimitOrderOptions extends PostOrderOptions {
   price: Big;
 }

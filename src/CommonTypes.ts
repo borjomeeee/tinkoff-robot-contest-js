@@ -23,16 +23,10 @@ export enum SubscriptionCandleInverval {
 export enum CandleInterval {
   CANDLE_INTERVAL_1_MIN = "CANDLE_INTERVAL_1_MIN",
   CANDLE_INTERVAL_5_MIN = "CANDLE_INTERVAL_5_MIN",
+  CANDLE_INTERVAL_15_MIN = "CANDLE_INTERVAL_15_MIN",
+  CANDLE_INTERVAL_HOUR = "CANDLE_INTERVAL_HOUR",
+  CANDLE_INTERVAL_DAY = "CANDLE_INTERVAL_DAY",
 }
-
-export const SubscriptionCandleIntervalDict: Record<
-  CandleInterval,
-  SubscriptionCandleInverval
-> = {
-  [CandleInterval.CANDLE_INTERVAL_1_MIN]: SubscriptionCandleInverval.ONE_MINUTE,
-  [CandleInterval.CANDLE_INTERVAL_5_MIN]:
-    SubscriptionCandleInverval.FIVE_MINUTES,
-};
 
 export interface Instrument {
   figi: string;

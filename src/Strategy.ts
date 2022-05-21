@@ -2,12 +2,14 @@ import Big from "big.js";
 import { Candle } from "./CommonTypes";
 
 export enum StrategyPredictAction {
-  BUY,
-  SELL,
+  BUY = "buy",
+  SELL = "sell",
 }
 
 export interface IStrategy {
   predict: (candles: Candle[]) => StrategyPredictAction | undefined;
+  getMinimalCandlesNumber: () => number;
+
   toString: () => string;
 }
 
@@ -73,6 +75,10 @@ export class BollingerBandsStrategy implements IStrategy {
       sum = sum.add(sma.minus(candle.close).pow(2));
     });
     return sum.div(periods).sqrt();
+  }
+
+  getMinimalCandlesNumber() {
+    return this.config.periods;
   }
 
   toString() {

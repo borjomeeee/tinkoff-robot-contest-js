@@ -10,6 +10,7 @@ import {
 } from "./Types";
 import { TinkoffApiClient } from "../TinkoffApiClient";
 
+let instrumentsCache: Map<string, Instrument> = new Map();
 export class TinkoffInstrumentsService implements IInstrumentsService {
   TAG = "TinkoffInstrumentsService";
   Logger = new Logger();
@@ -21,6 +22,10 @@ export class TinkoffInstrumentsService implements IInstrumentsService {
 
   async getInstrumentByFigi(options: GetInstrumentByFigiOptions) {
     const { figi } = options;
+
+    if (instrumentsCache.has(figi)) {
+      return instrumentsCache.get(figi) as Instrument;
+    }
 
     const request: InstrumentRequest = {
       idType: "INSTRUMENT_ID_TYPE_FIGI" as "INSTRUMENT_ID_TYPE_FIGI",
@@ -89,6 +94,8 @@ export class TinkoffInstrumentsService implements IInstrumentsService {
           }
 
           const data: Instrument = self._parseInstrument(v.instrument);
+          instrumentsCache.set(data.figi, data);
+
           this.Logger.debug(
             this.TAG,
             `<< Get instrument with params: ${JSON.stringify(

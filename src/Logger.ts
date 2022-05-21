@@ -1,6 +1,5 @@
 import { appendFile } from "fs/promises";
 import { open, FileHandle } from "node:fs/promises";
-import { Globals } from "./Globals";
 import { LoggerLevel } from "./LoggerTypes";
 export interface ILogger {
   warn: (tag: string, message: string) => void;
@@ -9,11 +8,12 @@ export interface ILogger {
 }
 
 let file: FileHandle | undefined = undefined;
+let globalLevel = LoggerLevel.DEBUG;
 export class Logger implements ILogger {
   private level: LoggerLevel;
 
-  constructor(level: LoggerLevel = Globals.loggerLevel) {
-    this.level = level;
+  constructor(level?: LoggerLevel) {
+    this.level = level ?? globalLevel;
   }
 
   debug(tag: string, msg: string, level = this.level) {
@@ -53,5 +53,9 @@ export class Logger implements ILogger {
 
   static async setFilePath(path: string) {
     file = await open(path, "w");
+  }
+
+  static setLevel(level: LoggerLevel) {
+    globalLevel = level;
   }
 }

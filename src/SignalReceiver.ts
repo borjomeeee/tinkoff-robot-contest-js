@@ -7,7 +7,7 @@ import { Logger } from "./Logger";
 
 import {
   IInstrumentsService,
-  IMarketService,
+  IMarketDataStream,
   IOrdersService,
 } from "./Services/Types";
 import {
@@ -22,19 +22,23 @@ import { SignalRealization, SignalRealizationErrorReason } from "./Signal";
 import { v5 as uuidv5, v4 as uuidv4 } from "uuid";
 import { Globals } from "./Globals";
 import { StrategyPredictAction } from "./Strategy";
+import Big from "big.js";
 
 interface ITinkoffBetterSignalReceiverConfig {
   accountId: string;
+
   lotsPerBet: number;
+  maxConcurrentBets: number;
+
+  commission: number;
 
   takeProfitPercent: number;
   stopLossPercent: number;
   updateOrderStateInterval: number;
-  expirationTime: number;
 
   services: {
     ordersService: IOrdersService;
-    marketService: IMarketService;
+    marketDataStream: IMarketDataStream;
     instrumentsService: IInstrumentsService;
   };
 }
@@ -58,7 +62,7 @@ export class TinkoffBetterSignalReceiver
 
   private terminatable = new Terminatable();
 
-  private processingSignals = 0;
+  processingSignals = 0;
   private finishWaiters: (() => any)[] = [];
 
   private startProcessingSignal() {
@@ -81,9 +85,9 @@ export class TinkoffBetterSignalReceiver
       return;
     }
 
-    const { lotsPerBet, accountId, services } = this.config;
+    const { lotsPerBet, accountId, services, maxConcurrentBets } = this.config;
     const { robotId, instrumentFigi, lastCandle } = signal;
-    const { ordersService } = services;
+    const { ordersService, instrumentsService } = services;
 
     this.Logger.debug(this.TAG, `Receive signal: ${JSON.stringify(signal)}`);
 
@@ -91,6 +95,14 @@ export class TinkoffBetterSignalReceiver
       `${robotId}$${instrumentFigi}${lastCandle.time.toString()}`,
       Globals.uuidNamespace
     );
+
+    if (this.processingSignals >= maxConcurrentBets) {
+      this.Logger.warn(
+        this.TAG,
+        "Reject signal because maxConcurrentBets limit!"
+      );
+      return;
+    }
 
     if (this.signalRealizations[signalId]) {
       this.Logger.warn(
@@ -103,21 +115,34 @@ export class TinkoffBetterSignalReceiver
     this.signalRealizations[signalId] = new SignalRealization(signal);
     this.startProcessingSignal();
 
+    const instrument = await instrumentsService.getInstrumentByFigi({
+      figi: instrumentFigi,
+    });
+
+    if (!instrument.tradable) {
+      this.stopProcessingSignal();
+      this.signalRealizations[signalId].handleError(
+        SignalRealizationErrorReason.FATAL,
+        `Insrument not tradable!`
+      );
+      return;
+    }
+
     // Post openOrder
     const openOrderId = signalId;
-    const completedOpenOrder = await promisable()
-      .then(() =>
-        ordersService.postMarketOrder({
-          instrumentFigi: signal.instrumentFigi,
-          orderDirection:
-            signal.predictAction === StrategyPredictAction.BUY
-              ? OrderDirection.BUY
-              : OrderDirection.SELL,
-          lots: lotsPerBet,
-          accountId,
-          orderId: openOrderId,
-        })
-      )
+    const completedOpenOrder = await ordersService
+      .postMarketOrder({
+        instrumentFigi: signal.instrumentFigi,
+        orderDirection:
+          signal.predictAction === StrategyPredictAction.BUY
+            ? OrderDirection.BUY
+            : OrderDirection.SELL,
+        lots: lotsPerBet,
+        accountId,
+        orderId: openOrderId,
+
+        _price: signal.lastCandle.close,
+      })
       .then((openOrder) => {
         this.signalRealizations[signalId].setOpenOrderId(openOrder.id);
         return this.waitForCompleteOrder(openOrder);
@@ -129,7 +154,7 @@ export class TinkoffBetterSignalReceiver
         );
       });
 
-    // If get error post openOrder
+    // If get error on post openOrder
     if (!completedOpenOrder) {
       this.stopProcessingSignal();
       return;
@@ -143,27 +168,19 @@ export class TinkoffBetterSignalReceiver
     }
 
     // Wait for resolver gets satisfy price
-    const waitForTakeProfitOrStopLossSuccessful =
-      await this.waitForCanStopLossOrTakeProfit(completedOpenOrder)
-        .then(() => true)
-        .catch((e) => {
-          this.signalRealizations[signalId].handleError(
-            SignalRealizationErrorReason.FATAL,
-            e.message
-          );
-          return false;
-        });
-
-    // If get error on wait
-    if (!waitForTakeProfitOrStopLossSuccessful) {
-      this.stopProcessingSignal();
-      return;
-    } else if (!this.isWorking) {
-      this.stopProcessingSignal();
+    const stopLossOrTakeProfitPrice = await this.waitForCanStopLossOrTakeProfit(
+      completedOpenOrder,
+      instrument.lot
+    ).catch((e) => {
       this.signalRealizations[signalId].handleError(
         SignalRealizationErrorReason.FATAL,
-        "Terminated on get takeProfit/stopLoss signal!"
+        e.message
       );
+    });
+
+    // If get error on wait
+    if (!stopLossOrTakeProfitPrice) {
+      this.stopProcessingSignal();
       return;
     }
 
@@ -179,6 +196,8 @@ export class TinkoffBetterSignalReceiver
         lots: lotsPerBet,
         accountId,
         orderId: closeOrderId,
+
+        _price: stopLossOrTakeProfitPrice,
       })
       .then((closeOrder) => {
         this.signalRealizations[signalId].setCloseOrderId(closeOrder.id);
@@ -191,8 +210,8 @@ export class TinkoffBetterSignalReceiver
         );
       });
 
-    // If post closeOrder successful - finish signal processing
-    if (completedCloseOrder) {
+    // If get error on post closeOrder
+    if (!completedCloseOrder) {
       this.stopProcessingSignal();
       return;
     } else if (!this.isWorking) {
@@ -204,77 +223,64 @@ export class TinkoffBetterSignalReceiver
       return;
     }
 
-    // If post close order failed - cancel open order
-    const revertOpenOrderId = uuidv4();
-    await ordersService
-      .postMarketOrder({
-        instrumentFigi: completedOpenOrder.instrumentFigi,
-        orderDirection:
-          completedOpenOrder.direction === OrderDirection.BUY
-            ? OrderDirection.SELL
-            : OrderDirection.BUY,
-        lots: lotsPerBet,
-        accountId,
-        orderId: revertOpenOrderId,
-      })
-      .then((revertOpenOrder) => {
-        this.signalRealizations[signalId].setRevertOpenOrderId(
-          revertOpenOrder.id
-        );
-        return this.waitForCompleteOrder(revertOpenOrder);
-      })
-      .catch((e) => {
-        this.signalRealizations[signalId].handleError(
-          SignalRealizationErrorReason.REVERT_OPEN_ORDER,
-          e.message
-        );
-      });
-
     this.stopProcessingSignal();
   }
 
-  private async waitForCanStopLossOrTakeProfit(order: CompletedOrder) {
-    const { services, takeProfitPercent, stopLossPercent } = this.config;
-    const { marketService, instrumentsService } = services;
+  private waitForCanStopLossOrTakeProfit(
+    order: CompletedOrder,
+    instrumentLot: number
+  ) {
+    const { services, takeProfitPercent, stopLossPercent, commission } =
+      this.config;
+    const { marketDataStream } = services;
 
-    const instrument = await instrumentsService.getInstrumentByFigi({
-      figi: order.instrumentFigi,
-    });
+    const instrumentPrice = order.totalPrice.div(order.lots).div(instrumentLot);
 
-    const instrumentPrice = order.totalPrice
-      .div(order.lots)
-      .div(instrument.lot);
+    const takeProfit = instrumentPrice
+      .plus(instrumentPrice.mul(takeProfitPercent))
+      .mul(1 + commission);
 
-    const takeProfit = instrumentPrice.mul(1 + takeProfitPercent / 100);
-    const stopLoss = instrumentPrice.mul(1 - stopLossPercent / 100);
+    const stopLoss = instrumentPrice
+      .minus(instrumentPrice.mul(stopLossPercent))
+      .mul(1 + commission);
 
-    return await new Promise<void>((res) => {
+    // Even if instance was stopped, its return price
+    // Return error if really happines error
+    return new Promise<Big | void>((res) => {
+      let lastPrice = order.totalPrice
+        .minus(order.totalCommission)
+        .div(order.lots)
+        .div(instrumentLot)
+        .mul(1 + commission);
+
       if (!this.isWorking) {
-        res();
+        res(lastPrice);
         return;
       }
 
       let unsubscribeLastPrice = noop;
-      unsubscribeLastPrice = marketService.subscribeLastPrice(
+      unsubscribeLastPrice = marketDataStream.subscribeLastPrice(
         {
           figi: order.instrumentFigi,
         },
         async (price) => {
-          if (takeProfit.lte(price) || stopLoss.gte(price)) {
+          lastPrice = price.mul(1 + commission);
+
+          if (takeProfit.lte(lastPrice) || stopLoss.gte(lastPrice)) {
             this.Logger.debug(
               this.TAG,
               `Fix signal open order: ${JSON.stringify(order)}`
             );
 
             unsubscribeLastPrice();
-            res();
+            res(price);
           }
         }
       );
 
       this.terminatable.notifyOnTerminate(() => {
         unsubscribeLastPrice();
-        res();
+        res(lastPrice);
       });
     });
   }
@@ -294,7 +300,7 @@ export class TinkoffBetterSignalReceiver
       if (currentOrderState.status === OrderExecutionStatus.COMPLETED) {
         if (
           !currentOrderState.totalPrice ||
-          !currentOrderState.totalCommision
+          !currentOrderState.totalCommission
         ) {
           throw new Error(
             `Total price or total commission is empty, order id: ${currentOrderState.id}`
@@ -346,8 +352,4 @@ export class TinkoffBetterSignalReceiver
 
     return this.stop();
   }
-}
-
-function promisable() {
-  return new Promise<void>((res) => res());
 }

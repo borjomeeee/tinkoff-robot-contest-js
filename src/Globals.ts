@@ -1,9 +1,5 @@
-import { LoggerLevel } from "./LoggerTypes";
-
 export const Globals = {
   isSandbox: true,
-
-  loggerLevel: LoggerLevel.DEBUG,
   tinkoffApiDdosInterval: 1000,
 
   TINKOFF_LSE_FIGI: "BBG005DXJS36",

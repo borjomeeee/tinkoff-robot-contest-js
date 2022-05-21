@@ -28,7 +28,7 @@ export interface OrderTrade {
 
 export interface Order extends UncompletedOrder {
   totalPrice?: Big;
-  totalCommision?: Big;
+  totalCommission?: Big;
 
   time?: number;
 }

@@ -122,5 +122,8 @@ export class CandleUtils {
 
 const candleTimeStep = {
   [CandleInterval.CANDLE_INTERVAL_1_MIN]: MIN_IN_MS,
-  [CandleInterval.CANDLE_INTERVAL_5_MIN]: FIVE_MIN_IN_MS,
+  [CandleInterval.CANDLE_INTERVAL_5_MIN]: 5 * MIN_IN_MS,
+  [CandleInterval.CANDLE_INTERVAL_15_MIN]: 15 * MIN_IN_MS,
+  [CandleInterval.CANDLE_INTERVAL_HOUR]: HOUR_IN_MS,
+  [CandleInterval.CANDLE_INTERVAL_DAY]: 24 * DAY_IN_MS,
 };
