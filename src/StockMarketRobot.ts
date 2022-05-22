@@ -3,7 +3,7 @@ import {
   IStockMarketRobotStrategySignal,
   IStockMarketRobotStrategySignalReceiver,
 } from "./StockMarketRobotTypes";
-import { CandleInterval, Instrument } from "./Types/Common";
+import { Candle, CandleInterval, Instrument, TradingDay } from "./Types/Common";
 import { TerminateError } from "./Helpers/Exceptions";
 import { Globals } from "./Globals";
 import { Logger } from "./Helpers/Logger";
@@ -71,18 +71,17 @@ export class StockMarketRobot {
     const candleIntervalTime =
       CandleUtils.getCandleTimeStepByInterval(candleInterval);
 
+    // Skip first not closed candle
+    const lastCandles = await getLastCandles();
+    await this.waitForCandleClose(
+      lastCandles[lastCandles.length - 1],
+      candleIntervalTime
+    );
+
     while (Date.now() < finishTime && this.isRunning) {
       this.Logger.debug(this.TAG, `Start work iteration`);
 
-      const lastCandles = await marketService.getLastCandles({
-        instrumentFigi,
-        interval: candleInterval,
-
-        amount: strategy.getMinimalCandlesNumberToApply(),
-
-        // to make sure we have actual data
-        from: new Date(Date.now() + candleIntervalTime),
-      });
+      const lastCandles = await getLastCandles();
 
       const lastCandle = lastCandles[lastCandles.length - 1];
       const lastCandleCloseTime = lastCandle.time + candleIntervalTime;
@@ -119,12 +118,19 @@ export class StockMarketRobot {
         }
       }
 
-      // Wait for next candle
-      const nextCandleOpenTime =
-        candleIntervalTime - (Date.now() - lastCandleCloseTime);
-      if (nextCandleOpenTime > 0) {
-        await this.sleepIfRunning(nextCandleOpenTime);
-      }
+      await this.waitForCandleClose(lastCandle, candleIntervalTime);
+    }
+
+    function getLastCandles() {
+      return marketService.getLastCandles({
+        instrumentFigi,
+        interval: candleInterval,
+
+        amount: strategy.getMinimalCandlesNumberToApply(),
+
+        // to make sure we have actual data
+        from: new Date(Date.now() + candleIntervalTime),
+      });
     }
   }
 
@@ -149,7 +155,7 @@ export class StockMarketRobot {
     if (terminateAt) {
       const remainedToTerminate = terminateAt - Date.now();
       remainedToTerminate > 0 &&
-        this.sleepIfRunning(terminateAt - Date.now()).then(() => this.stop());
+        this.sleepIfRunning(remainedToTerminate).then(() => this.stop());
     }
 
     try {
@@ -166,13 +172,10 @@ export class StockMarketRobot {
           currentTradingDay.startTime &&
           currentTradingDay.endTime
         ) {
-          const { startTime, endTime } = currentTradingDay;
-
           // Wait for work day start
-          const timeBeforeStart = Math.min(startTime - Date.now(), 0);
-          if (timeBeforeStart > 0) {
-            await this.sleepIfRunning(timeBeforeStart);
-          }
+          const timeBeforeStart =
+            this.getTimeBeforeStartTradingDay(currentTradingDay);
+          timeBeforeStart && (await this.sleepIfRunning(timeBeforeStart));
 
           this.Logger.debug(this.TAG, `Start working day`);
           await this.work({
@@ -181,17 +184,18 @@ export class StockMarketRobot {
             instrumentFigi,
             candleInterval,
 
-            finishTime: endTime,
+            finishTime: currentTradingDay.endTime,
           });
           this.Logger.debug(this.TAG, `End working day`);
         }
 
         // Wait for next trading day
         if (nextTradingDay?.startTime) {
-          const endWorkTime = Date.now();
-          await this.sleepIfRunning(
-            Math.max(nextTradingDay.startTime - endWorkTime, 0)
-          );
+          const timeBeforeNextTradingDay =
+            this.getTimeBeforeStartTradingDay(nextTradingDay);
+
+          timeBeforeNextTradingDay &&
+            (await this.sleepIfRunning(timeBeforeNextTradingDay));
         } else {
           await this.sleepIfRunning(12 * HOUR_IN_MS);
         }
@@ -250,6 +254,20 @@ export class StockMarketRobot {
 
     // Return only today and tommorrow
     return tradingSchedule.days.slice(0, 2);
+  }
+
+  private waitForCandleClose(candle: Candle, intervalTime: number) {
+    // Wait for next candle
+    const nextCandleOpenTime = candle.time + intervalTime - Date.now();
+    if (nextCandleOpenTime > 0) {
+      return this.sleepIfRunning(nextCandleOpenTime);
+    }
+  }
+
+  private getTimeBeforeStartTradingDay(tradingDay: TradingDay) {
+    if (tradingDay.startTime) {
+      return Math.max(tradingDay.startTime - Date.now(), 0);
+    }
   }
 
   private async sleepIfRunning(ms: number) {
