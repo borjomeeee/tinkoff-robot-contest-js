@@ -200,13 +200,6 @@ export class SampleSignalResolver
     if (!completedOpenOrder) {
       this.stopProcessingSignal();
       return;
-    } else if (!this.isWorking) {
-      this.stopProcessingSignal();
-      this.signalRealizations[signalId].handleError(
-        SignalRealizationErrorReason.FATAL,
-        "Terminated after post openOrder!"
-      );
-      return;
     }
 
     // Wait for resolver gets satisfy price
@@ -228,7 +221,7 @@ export class SampleSignalResolver
 
     // Post closeOrder
     const closeOrderId = uuidv4();
-    const completedCloseOrder = await ordersService
+    await ordersService
       .postMarketOrder({
         instrumentFigi: signal.instrumentFigi,
         orderDirection:
@@ -251,19 +244,6 @@ export class SampleSignalResolver
           e.message
         );
       });
-
-    // If get error on post closeOrder
-    if (!completedCloseOrder) {
-      this.stopProcessingSignal();
-      return;
-    } else if (!this.isWorking) {
-      this.stopProcessingSignal();
-      this.signalRealizations[signalId].handleError(
-        SignalRealizationErrorReason.FATAL,
-        "Terminated after post closeOrder!"
-      );
-      return;
-    }
 
     this.stopProcessingSignal();
   }
