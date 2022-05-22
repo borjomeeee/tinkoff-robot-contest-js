@@ -147,7 +147,7 @@ export class SampleSignalResolver
       .catch((e) => {
         this.signalRealizations[signalId].handleError(
           SignalRealizationErrorReason.FATAL,
-          `Failed to load instrument info: ${e.message}`
+          "instrument-load-failed"
         );
       });
 
@@ -160,7 +160,7 @@ export class SampleSignalResolver
       this.stopProcessingSignal();
       this.signalRealizations[signalId].handleError(
         SignalRealizationErrorReason.FATAL,
-        `Insrument not tradable!`
+        "instrument-not-tradable"
       );
       return;
     }
@@ -185,13 +185,21 @@ export class SampleSignalResolver
 
         _price: signal.lastCandle.close,
       })
-      .then((openOrder) => {
-        this.signalRealizations[signalId].setOpenOrderId(openOrder.id);
-        return this.waitForCompleteOrder(openOrder);
-      })
       .catch((e) => {
         this.signalRealizations[signalId].handleError(
           SignalRealizationErrorReason.POST_OPEN_ORDER,
+          e.message
+        );
+      })
+      .then((openOrder) => {
+        if (openOrder) {
+          this.signalRealizations[signalId].setOpenOrderId(openOrder.id);
+          return this.waitForCompleteOrder(openOrder);
+        }
+      })
+      .catch((e) => {
+        this.signalRealizations[signalId].handleError(
+          SignalRealizationErrorReason.FATAL,
           e.message
         );
       });
@@ -234,13 +242,21 @@ export class SampleSignalResolver
 
         _price: stopLossOrTakeProfitPrice,
       })
-      .then((closeOrder) => {
-        this.signalRealizations[signalId].setCloseOrderId(closeOrder.id);
-        return this.waitForCompleteOrder(closeOrder);
-      })
       .catch((e) => {
         this.signalRealizations[signalId].handleError(
           SignalRealizationErrorReason.POST_CLOSE_ORDER,
+          e.message
+        );
+      })
+      .then((closeOrder) => {
+        if (closeOrder) {
+          this.signalRealizations[signalId].setCloseOrderId(closeOrder.id);
+          return this.waitForCompleteOrder(closeOrder);
+        }
+      })
+      .catch((e) => {
+        this.signalRealizations[signalId].handleError(
+          SignalRealizationErrorReason.FATAL,
           e.message
         );
       });
@@ -317,7 +333,7 @@ export class SampleSignalResolver
 
   private async waitForCompleteOrder(
     order: UncompletedOrder
-  ): Promise<CompletedOrder | undefined> {
+  ): Promise<CompletedOrder> {
     const { accountId } = this.config;
     const { ordersService } = this.services;
 
@@ -340,7 +356,7 @@ export class SampleSignalResolver
           const errorMsg = `Total price or total commission is empty, order id: ${currentOrderState.id}`;
 
           this.Logger.error(this.TAG, errorMsg);
-          throw new Error(errorMsg);
+          throw new Error("incorrect-complete-order");
         }
         this.Logger.debug(
           this.TAG,
@@ -359,8 +375,11 @@ export class SampleSignalResolver
 
       const errorMsg = `Order(${currentOrderState.id}) was completed with not expected status: ${currentOrderState.status}`;
       this.Logger.error(this.TAG, errorMsg);
-      throw new Error(errorMsg);
+
+      throw new Error("incorrect-complete-order-status");
     }
+
+    throw new Error("work-terminated");
   }
 
   // Waits for all signals resolves

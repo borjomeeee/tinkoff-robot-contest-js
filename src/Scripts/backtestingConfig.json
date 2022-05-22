@@ -24,9 +24,7 @@
       "commission": 0.0003,
 
       "takeProfitPercent": 0.1,
-      "stopLossPercent": 0.1,
-
-      "forceCloseOnFinish": true
+      "stopLossPercent": 0.1
     }
   }
 }
