@@ -1,0 +1,32 @@
+{
+  "isSanbox": false,
+  "brokerCommission": 0.0003,
+
+  "strategy": {
+    "BollingerBands": {
+      "periods": 20,
+      "deviation": 2
+    }
+  },
+
+  "instrumentFigi": "BBG000B9XRY4",
+  "candleInterval": "15m",
+
+  "startDate": "01/04/2022",
+  "endDate": "30/04/2022",
+
+  "signalReceiver": {
+    "SampleSignalResolver": {
+      "accountId": "b7291f16-812e-41e6-bf5c-1b211fd2ad5b",
+      "lotsPerBet": 1,
+
+      "maxConcurrentBets": 3,
+      "commission": 0.0003,
+
+      "takeProfitPercent": 0.1,
+      "stopLossPercent": 0.1,
+
+      "forceCloseOnFinish": true
+    }
+  }
+}

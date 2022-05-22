@@ -10,8 +10,6 @@ interface IBacktesterConfig {
   candleInterval: CandleInterval;
 
   candlesHistory: Candle[];
-
-  commission: number;
   marketDataStream: IBacktestMarketDataStream;
 }
 
@@ -19,15 +17,15 @@ interface IBacktesterBuildOptions {
   instrumentFigi: string;
   candleInterval: CandleInterval;
 
-  from: Date;
-  amount: number;
-
-  services: {
-    marketService: IMarketService;
-    marketDataStream: IBacktestMarketDataStream;
-  };
+  from: number;
+  to: number;
 
   commission: number;
+}
+
+interface IBacktesterBuildServices {
+  marketService: IMarketService;
+  marketDataStream: IBacktestMarketDataStream;
 }
 
 interface IBacktesterRunOptions {
@@ -42,27 +40,22 @@ export class Backtester {
     this.config = config;
   }
 
-  static async of(options: IBacktesterBuildOptions) {
-    const {
-      services,
-      instrumentFigi,
-      from,
-      amount,
-      candleInterval,
-      commission,
-    } = options;
+  static async of(
+    options: IBacktesterBuildOptions,
+    services: IBacktesterBuildServices
+  ) {
+    const { instrumentFigi, from, to, candleInterval } = options;
     const { marketDataStream, marketService } = services;
 
-    const candlesHistory = await marketService.getLastCandles({
+    const candlesHistory = await marketService.getCandles({
       instrumentFigi,
-      from,
-      amount,
+      from: new Date(from),
+      to: new Date(to),
       interval: candleInterval,
     });
 
     return new Backtester({
       candlesHistory,
-      commission,
       instrumentFigi,
       candleInterval,
       marketDataStream,
@@ -77,7 +70,7 @@ export class Backtester {
     const candlesForApply = strategy.getMinimalCandlesNumberToApply();
     for (let i = candlesForApply; i < candlesHistory.length; i++) {
       const candles = candlesHistory.slice(i, candlesForApply + i);
-      const predictAction = strategy.predict(candles);
+      const predictAction = await strategy.predict(candles);
 
       const lastCandle = candles[candles.length - 1];
 
@@ -109,7 +102,7 @@ export class Backtester {
       }
 
       // Need to receiver make subscriptions
-      await sleep(10);
+      await sleep(20);
     }
   }
 }

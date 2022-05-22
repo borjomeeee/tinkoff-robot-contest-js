@@ -4,24 +4,23 @@ import {
   UncompletedOrder,
 } from "../Types/Order";
 import { OrderDirection } from "../Types/Common";
-import { noop, sleep, Terminatable } from "../Helpers/Utils";
+import { noop, SignalUtils, sleep, Terminatable } from "../Helpers/Utils";
 import {
   SignalRealization,
   SignalRealizationErrorReason,
 } from "../Types/Signal";
 
 import Big from "big.js";
-import { v5 as uuidv5, v4 as uuidv4 } from "uuid";
-import { Globals } from "../Globals";
+import { v4 as uuidv4 } from "uuid";
 import { StrategyPredictAction } from "../Types/Strategy";
-import { IOrdersService } from "../Services/IOrdersService";
-import { IMarketDataStream } from "../Services/IMarketDataStream";
-import { IInstrumentsService } from "../Services/IInsrumentsService";
+
 import {
   IStockMarketRobotStrategySignal,
   IStockMarketRobotStrategySignalReceiver,
 } from "../StockMarketRobotTypes";
 import { Logger } from "../Helpers/Logger";
+import { IServices } from "../Services/IServices";
+import { Globals } from "../Globals";
 
 interface ISampleSignalResolverConfig {
   accountId: string;
@@ -33,13 +32,8 @@ interface ISampleSignalResolverConfig {
 
   takeProfitPercent: number;
   stopLossPercent: number;
-  updateOrderStateInterval: number;
 
-  services: {
-    ordersService: IOrdersService;
-    marketDataStream: IMarketDataStream;
-    instrumentsService: IInstrumentsService;
-  };
+  forceCloseOnFinish?: boolean;
 }
 
 export class SampleSignalResolver
@@ -51,16 +45,56 @@ export class SampleSignalResolver
   private signalRealizations: Record<string, SignalRealization> = {};
 
   private config: ISampleSignalResolverConfig;
-  constructor(config: ISampleSignalResolverConfig) {
+  private services: IServices;
+
+  constructor(config: ISampleSignalResolverConfig, services: IServices) {
+    if (typeof config.accountId !== "string") {
+      throw new Error("accountId incorrect or not specified!");
+    }
+
+    if (typeof config.lotsPerBet !== "number" || config.lotsPerBet <= 0) {
+      throw new Error("lotsPerBet incorrect or not specified!");
+    }
+
+    if (typeof config.commission !== "number" || config.commission <= 0) {
+      throw new Error("commission incorrect or not specified!");
+    }
+
+    if (
+      typeof config.maxConcurrentBets !== "number" ||
+      config.maxConcurrentBets <= 0
+    ) {
+      throw new Error("maxConcurrentBets incorrect or not specified!");
+    }
+
+    if (
+      typeof config.stopLossPercent !== "number" ||
+      config.stopLossPercent <= 0
+    ) {
+      throw new Error("stopLossPercent incorrect or not specified!");
+    }
+
+    if (
+      typeof config.takeProfitPercent !== "number" ||
+      config.takeProfitPercent <= 0
+    ) {
+      throw new Error("takeProfitPercent incorrect or not specified!");
+    }
+
+    if (typeof config.forceCloseOnFinish !== "boolean") {
+      config.forceCloseOnFinish = true;
+    }
+
     this.config = config;
+    this.services = services;
   }
 
-  private isWorking = false;
+  private isWorking = true;
   private isClosing = false;
 
   private terminatable = new Terminatable();
 
-  processingSignals = 0;
+  private processingSignals = 0;
   private finishWaiters: (() => any)[] = [];
 
   private startProcessingSignal() {
@@ -83,39 +117,44 @@ export class SampleSignalResolver
       return;
     }
 
-    const { lotsPerBet, accountId, services, maxConcurrentBets } = this.config;
-    const { robotId, instrumentFigi, lastCandle } = signal;
-    const { ordersService, instrumentsService } = services;
+    const { lotsPerBet, accountId, maxConcurrentBets } = this.config;
+    const { ordersService, instrumentsService } = this.services;
+    const { instrumentFigi } = signal;
 
     this.Logger.debug(this.TAG, `Receive signal: ${JSON.stringify(signal)}`);
-
-    const signalId = uuidv5(
-      `${robotId}$${instrumentFigi}${lastCandle.time.toString()}`,
-      Globals.uuidNamespace
-    );
+    const signalId = SignalUtils.getId(signal);
 
     if (this.processingSignals >= maxConcurrentBets) {
       this.Logger.warn(
         this.TAG,
-        "Reject signal because maxConcurrentBets limit!"
+        `Reject signal because maxConcurrentBets limit`
       );
       return;
     }
 
     if (this.signalRealizations[signalId]) {
-      this.Logger.warn(
-        this.TAG,
-        `Reject duplication signal: ${JSON.stringify(signalId)}`
-      );
+      this.Logger.warn(this.TAG, `Reject duplication signal: ${signalId}`);
       return;
     }
 
     this.signalRealizations[signalId] = new SignalRealization(signal);
     this.startProcessingSignal();
 
-    const instrument = await instrumentsService.getInstrumentByFigi({
-      figi: instrumentFigi,
-    });
+    const instrument = await instrumentsService
+      .getInstrumentByFigi({
+        figi: instrumentFigi,
+      })
+      .catch((e) => {
+        this.signalRealizations[signalId].handleError(
+          SignalRealizationErrorReason.FATAL,
+          `Failed to load instrument info: ${e.message}`
+        );
+      });
+
+    if (!instrument) {
+      this.stopProcessingSignal();
+      return;
+    }
 
     if (!instrument.tradable) {
       this.stopProcessingSignal();
@@ -125,6 +164,11 @@ export class SampleSignalResolver
       );
       return;
     }
+
+    this.Logger.debug(
+      this.TAG,
+      `Post open order for signal: ${JSON.stringify(signal)}`
+    );
 
     // Post openOrder
     const openOrderId = signalId;
@@ -228,9 +272,8 @@ export class SampleSignalResolver
     order: CompletedOrder,
     instrumentLot: number
   ) {
-    const { services, takeProfitPercent, stopLossPercent, commission } =
-      this.config;
-    const { marketDataStream } = services;
+    const { takeProfitPercent, stopLossPercent, commission } = this.config;
+    const { marketDataStream } = this.services;
 
     const instrumentPrice = order.totalPrice.div(order.lots).div(instrumentLot);
 
@@ -242,7 +285,14 @@ export class SampleSignalResolver
       .minus(instrumentPrice.mul(stopLossPercent))
       .mul(1 + commission);
 
-    // Even if instance was stopped, its return price
+    this.Logger.debug(
+      this.TAG,
+      `Start wait for stop loss or take profit for order: ${JSON.stringify(
+        order
+      )}`
+    );
+
+    // Even stop was called, its return price
     // Return error if really happines error
     return new Promise<Big | void>((res) => {
       let lastPrice = order.totalPrice
@@ -267,7 +317,9 @@ export class SampleSignalResolver
           if (takeProfit.lte(lastPrice) || stopLoss.gte(lastPrice)) {
             this.Logger.debug(
               this.TAG,
-              `Fix signal open order: ${JSON.stringify(order)}`
+              `End wait for stop loss or take profit for order: ${JSON.stringify(
+                order
+              )}`
             );
 
             unsubscribeLastPrice();
@@ -286,8 +338,13 @@ export class SampleSignalResolver
   private async waitForCompleteOrder(
     order: UncompletedOrder
   ): Promise<CompletedOrder | undefined> {
-    const { services, accountId, updateOrderStateInterval } = this.config;
-    const { ordersService } = services;
+    const { accountId } = this.config;
+    const { ordersService } = this.services;
+
+    this.Logger.debug(
+      this.TAG,
+      `Start waiting for complete order: ${JSON.stringify(order)}`
+    );
 
     while (this.isWorking) {
       const currentOrderState = await ordersService.getOrderState({
@@ -300,11 +357,15 @@ export class SampleSignalResolver
           !currentOrderState.totalPrice ||
           !currentOrderState.totalCommission
         ) {
-          throw new Error(
-            `Total price or total commission is empty, order id: ${currentOrderState.id}`
-          );
-        }
+          const errorMsg = `Total price or total commission is empty, order id: ${currentOrderState.id}`;
 
+          this.Logger.error(this.TAG, errorMsg);
+          throw new Error(errorMsg);
+        }
+        this.Logger.debug(
+          this.TAG,
+          `End waiting for complete order: ${JSON.stringify(order)}`
+        );
         return currentOrderState as CompletedOrder;
       }
 
@@ -312,31 +373,32 @@ export class SampleSignalResolver
         currentOrderState.status === OrderExecutionStatus.NEW ||
         currentOrderState.status === OrderExecutionStatus.PARTIALLY_COMPLETED
       ) {
-        await sleep(updateOrderStateInterval, this.terminatable);
+        await this.sleepIfWorking(Globals.updateOrderStateInterval);
         continue;
       }
 
-      throw new Error(
-        `Order was completed with not expected status: ${currentOrderState.status}`
-      );
+      const errorMsg = `Order(${currentOrderState.id}) was completed with not expected status: ${currentOrderState.status}`;
+      this.Logger.error(this.TAG, errorMsg);
+      throw new Error(errorMsg);
     }
   }
 
-  start() {
-    this.isWorking = true;
-    this.isClosing = false;
-  }
-
   // Waits for all signals resolves
-  stop() {
+  private stop() {
     this.isClosing = true;
+    this.Logger.debug(this.TAG, `Start stopping signal resolver ...`);
+
     return new Promise<void>((res) => {
       if (this.processingSignals > 0) {
         this.finishWaiters.push(() => {
+          this.Logger.debug(this.TAG, `Finish stopping signal resolver ...`);
+
           this.isWorking = false;
           res();
         });
       } else {
+        this.Logger.debug(this.TAG, `Finish stopping signal resolver ...`);
+
         this.isWorking = false;
         res();
       }
@@ -344,10 +406,36 @@ export class SampleSignalResolver
   }
 
   // Terminate all processing signals
-  forceStop() {
+  private forceStop() {
     this.isWorking = false;
     this.terminatable.terminate();
 
     return this.stop();
   }
+
+  async finishWork() {
+    if (this.config.forceCloseOnFinish) {
+      await this.forceStop();
+    } else {
+      await this.stop();
+    }
+
+    return this.signalRealizations;
+  }
+
+  private async sleepIfWorking(ms: number) {
+    if (this.isWorking) {
+      await sleep(ms, this.terminatable);
+    }
+  }
 }
+
+// Кейсы остановки робота
+// - Выставлен ордер на покупку (статус не подтвержден)
+//      : Бот заканчивает работу без открытия встречного ордера
+// - Выставлен ордер на покупку (статус подтвержден)
+//      : Бот выставляет встречный ордер
+// - Выставлен ордер на sl/tp (статус не подтвержден)
+//      : Бот ждет до конца выполнения
+// - Выставлен ордер на sl/tp (статус подтвержден)
+//      : Nothing

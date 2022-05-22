@@ -5,8 +5,12 @@ export enum StrategyPredictAction {
   SELL = "sell",
 }
 
+export type MayBePromise<T> = Promise<T> | T;
+export interface IStrategyOptions {}
 export interface IStrategy {
-  predict: (candles: Candle[]) => StrategyPredictAction | undefined;
+  predict: (
+    candles: Candle[]
+  ) => MayBePromise<StrategyPredictAction | undefined>;
   getMinimalCandlesNumberToApply: () => number;
 
   toString: () => string;

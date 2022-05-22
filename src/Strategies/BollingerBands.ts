@@ -1,8 +1,12 @@
 import Big from "big.js";
 import { Candle } from "../Types/Common";
-import { IStrategy, StrategyPredictAction } from "../Types/Strategy";
+import {
+  IStrategy,
+  IStrategyOptions,
+  StrategyPredictAction,
+} from "../Types/Strategy";
 
-interface BollingerBandsStrategyConfig {
+interface BollingerBandsStrategyConfig extends IStrategyOptions {
   periods: number;
   deviation: number;
 }
@@ -10,11 +14,11 @@ interface BollingerBandsStrategyConfig {
 export class BollingerBandsStrategy implements IStrategy {
   config: BollingerBandsStrategyConfig;
   constructor(config: BollingerBandsStrategyConfig) {
-    if (config.periods <= 0) {
+    if (typeof config.periods !== "number" || config.periods <= 0) {
       throw new Error("Number of periods must be 1 or more!");
     }
 
-    if (config.deviation <= 0) {
+    if (typeof config.deviation !== "number" || config.deviation <= 0) {
       throw new Error("Number of deviation must be 1 or more!");
     }
 

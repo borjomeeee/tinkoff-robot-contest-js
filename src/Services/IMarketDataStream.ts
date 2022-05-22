@@ -8,14 +8,6 @@ export interface IMarketDataStream {
   ): () => void;
 
   unsubscribeLastPrice(fn: LastPriceSubscription): void;
-
-  // Can be extended
-
-  // subscribeCandles(
-  //   options: CandleSubscriptionOptions,
-  //   fn: CandleSupscription
-  // ): () => void;
-  // unsubscribeCandles(fn: CandleSupscription): void;
 }
 
 export type CandleSupscription = (candle: Candle) => any;

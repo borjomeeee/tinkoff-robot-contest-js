@@ -8,14 +8,13 @@ import {
 import { TerminateError } from "./Exceptions";
 import { Globals } from "../Globals";
 import { OrderExecutionStatus } from "../Types/Order";
+import { IStockMarketRobotStrategySignal } from "../StockMarketRobotTypes";
+import { v5 as uuidv5 } from "uuid";
 
 export class Terminatable {
-  isTerminated = false;
-  notifyers: ((e: Error) => any)[] = [];
+  notifyers: (() => any)[] = [];
 
-  error = new TerminateError("terminated!");
-
-  notifyOnTerminate(notifyer: (e: Error) => any) {
+  notifyOnTerminate(notifyer: () => any) {
     this.notifyers.push(notifyer);
     return () => {
       this.notifyers = this.notifyers.filter((notify) => notify !== notifyer);
@@ -24,9 +23,7 @@ export class Terminatable {
   }
 
   terminate() {
-    const self = this;
-
-    this.notifyers.forEach((notify) => notify(self.error));
+    this.notifyers.forEach((notify) => notify());
     this.notifyers = [];
   }
 }
@@ -36,15 +33,15 @@ export const sleep = (
   ms: number,
   terminatable: Terminatable | undefined = undefined
 ) =>
-  new Promise((res, reject) => {
+  new Promise<void>((res) => {
     let unsubTerminate = noop;
     if (terminatable) {
-      unsubTerminate = terminatable.notifyOnTerminate((e) => reject(e));
+      unsubTerminate = terminatable.notifyOnTerminate(() => res());
     }
 
     setTimeout(() => {
       unsubTerminate();
-      res(undefined);
+      res();
     }, ms);
   });
 
@@ -129,6 +126,16 @@ export class TimestampUtils {
   static toDate(timestamp: Timestamp) {
     const nanos = +timestamp.nanos.toString().slice(0, 3);
     return new Date(+timestamp.seconds * 1000 + nanos);
+  }
+}
+
+export class SignalUtils {
+  static getId(signal: IStockMarketRobotStrategySignal) {
+    const { robotId, instrumentFigi, lastCandle } = signal;
+    return uuidv5(
+      `${robotId}$${instrumentFigi}${lastCandle.time.toString()}`,
+      Globals.uuidNamespace
+    );
   }
 }
 

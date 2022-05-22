@@ -3,7 +3,6 @@ import { Logger } from "../Helpers/Logger";
 import { TimestampUtils } from "../Helpers/Utils";
 import { TinkoffApiClient } from "../TinkoffApiClient";
 import {
-  CandleUtils,
   DAY_IN_MS,
   FOUR_HOURS_IN_MS,
   HOUR_IN_MS,
@@ -29,15 +28,13 @@ export class TinkoffMarketService implements IMarketService {
     const { amount, instrumentFigi, interval, from } = options;
 
     const step = getLastCandlesStep[interval];
-    const candleIntervalMs = CandleUtils.getCandleTimeStepByInterval(interval);
-
     this.Logger.debug(
       this.TAG,
       `>> Get last candles with params: ${JSON.stringify(options)}`
     );
 
     const candles: Record<string, HistoricalCandle> = {};
-    let cursorDate = new Date(from.getTime() - step + candleIntervalMs);
+    let cursorDate = new Date(from.getTime() - step);
 
     while (true) {
       const candlesList = await this.getCandles({
@@ -49,10 +46,8 @@ export class TinkoffMarketService implements IMarketService {
       });
 
       candlesList.forEach((candle) => (candles[candle.time] = candle));
-      const completedCandlesList = Object.values(candles).filter(onlyCompleted);
-
-      if (completedCandlesList.length >= amount) {
-        const data = completedCandlesList
+      if (Object.keys(candles).length >= amount) {
+        const data = Object.values(candles)
           .sort((candle1, candle2) => candle1.time - candle2.time)
           .slice(-amount);
 
@@ -71,6 +66,41 @@ export class TinkoffMarketService implements IMarketService {
   }
 
   async getCandles(options: GetCandlesOptions) {
+    const { instrumentFigi, interval, from, to } = options;
+
+    const step = getLastCandlesStep[interval];
+    let cursorDate = to;
+
+    if (to.getTime() < from.getTime()) {
+      throw new Error("'to' date must be more than 'from' date!");
+    }
+
+    const candles: Record<string, HistoricalCandle> = {};
+    while (cursorDate.getTime() !== from.getTime()) {
+      const currentStep = Math.min(cursorDate.getTime() - from.getTime(), step);
+      const candlesList = await this._getCandles({
+        from: new Date(cursorDate.getTime() - currentStep),
+        to: cursorDate,
+
+        instrumentFigi,
+        interval,
+      });
+
+      candlesList.forEach((candle) => (candles[candle.time] = candle));
+      cursorDate = new Date(
+        Math.max(cursorDate.getTime() - step, from.getTime())
+      );
+    }
+
+    const completedCandlesList = Object.values(candles);
+    const data = completedCandlesList.sort(
+      (candle1, candle2) => candle1.time - candle2.time
+    );
+
+    return data;
+  }
+
+  async _getCandles(options: GetCandlesOptions) {
     const self = this;
     const { instrumentFigi, from, to, interval } = options;
 
@@ -116,10 +146,6 @@ export class TinkoffMarketService implements IMarketService {
       isComplete: feature.isComplete,
     };
   }
-}
-
-function onlyCompleted(candle: HistoricalCandle) {
-  return candle.isComplete;
 }
 
 const getLastCandlesStep = {

@@ -25,6 +25,10 @@ export interface IStockMarketRobotStartOptions {
   terminateAt?: number;
 }
 
+export interface IStockMarketRobotStrategySignalReceiverOptions {}
 export interface IStockMarketRobotStrategySignalReceiver {
   receive: (signalInfo: IStockMarketRobotStrategySignal) => void;
+
+  // For return some report information
+  finishWork: () => Promise<object>;
 }

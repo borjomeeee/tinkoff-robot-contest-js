@@ -5,7 +5,10 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "ts-node ./src/index.ts"
+    "start": "ts-node ./src/index.ts",
+    "robot:run": "ts-node ./src/Scripts/runningScript.ts",
+    "backtest": "ts-node ./src/Scripts/backtestingScript.ts",
+    "postinstall": "patch-package"
   },
   "author": "",
   "license": "ISC",
@@ -19,6 +22,7 @@
   "dependencies": {
     "@tinkoff/invest-js": "^1.0.0-alpha.3",
     "big.js": "^6.1.1",
+    "dayjs": "^1.11.2",
     "dotenv": "^16.0.1",
     "grpc-tools": "^1.11.2",
     "node-storage": "^0.0.9",

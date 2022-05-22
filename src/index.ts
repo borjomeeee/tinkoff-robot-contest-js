@@ -7,7 +7,7 @@ import { Logger, LoggerLevel } from "./Helpers/Logger";
 
 import { StockMarketRobot } from "./StockMarketRobot";
 import { TinkoffApiClient } from "./TinkoffApiClient";
-import { DAY_IN_MS, HOUR_IN_MS, SEC_IN_MS, WEEK_IN_MS } from "./Helpers/Utils";
+import { DAY_IN_MS, HOUR_IN_MS, SEC_IN_MS } from "./Helpers/Utils";
 import { open, writeFile } from "node:fs/promises";
 import { Backtester } from "./Backtester";
 import { BacktestingOrdersService } from "./Services/BacktestingOrdersService";
@@ -18,7 +18,11 @@ import { TinkoffMarketDataStream } from "./Services/TinkoffMarketDataStream";
 import { TinkoffOrdersService } from "./Services/TinkoffOrdersService";
 import { BollingerBandsStrategy } from "./Strategies/BollingerBands";
 import { SampleSignalResolver } from "./SignalReceivers/SampleSignalResolver";
+import { IServices } from "./Services/IServices";
 
+import dayjs from "dayjs";
+var customParseFormat = require("dayjs/plugin/customParseFormat");
+dayjs.extend(customParseFormat);
 
 // TODO:
 // - add comments
@@ -36,55 +40,49 @@ async function main() {
       },
     });
 
-    const instrumentsService = new TinkoffInstrumentsService(client);
-    const marketService = new TinkoffMarketService(client);
-    const marketDataStream = new TinkoffMarketDataStream(client);
-    const ordersService = new TinkoffOrdersService({
-      client,
-      isSandbox: Globals.isSandbox,
-    });
+    const services: IServices = {
+      instrumentsService: new TinkoffInstrumentsService(client),
+      marketDataStream: new TinkoffMarketDataStream(client),
+      marketService: new TinkoffMarketService(client),
+      ordersService: new TinkoffOrdersService({
+        client,
+        isSandbox: Globals.isSandbox,
+      }),
+    };
 
-    const marketRobot = new StockMarketRobot({
-      strategy: new BollingerBandsStrategy({ periods: 20, deviation: 2 }),
+    const signalResolver = new SampleSignalResolver(
+      {
+        accountId: Globals.sandboxAccountId,
 
-      // TODO: move to strategy
-      numberCandlesToApplyStrategy: 20,
-      minimalCandleTime: Date.now() - WEEK_IN_MS,
+        lotsPerBet: 1,
+        maxConcurrentBets: 1,
+        commission: 0.0003,
 
-      services: {
-        instrumentsService,
-        marketService,
+        takeProfitPercent: 0.2,
+        stopLossPercent: 0.2,
+
+        forceCloseOnFinish: false,
       },
-    });
+      services
+    );
 
-    const signalResolver = new SampleSignalResolver({
-      accountId: Globals.sandboxAccountId,
-
-      lotsPerBet: 1,
-      maxConcurrentBets: 1,
-      commission: 0.0003,
-
-      takeProfitPercent: 0.2,
-      stopLossPercent: 0.2,
-      updateOrderStateInterval: SEC_IN_MS,
-
-      services: {
-        ordersService,
-        marketDataStream,
-        instrumentsService,
+    const marketRobot = new StockMarketRobot(
+      {
+        signalReceiver: signalResolver,
       },
-    });
-    signalResolver.start();
+      services
+    );
 
     await marketRobot.run({
+      strategy: new BollingerBandsStrategy({ periods: 20, deviation: 2 }),
+
       instrumentFigi: Globals.APPL_SPBX_FIGI,
       candleInterval: CandleInterval.CANDLE_INTERVAL_1_MIN,
-      terminateAt: Date.now() + HOUR_IN_MS,
 
-      onStrategySignal: signalResolver.receive.bind(signalResolver),
+      terminateAt: Date.now() + HOUR_IN_MS,
     });
 
-    await signalResolver.forceStop();
+    await signalResolver.finishWork();
     const signalRealizations = signalResolver.getSignalRealizations();
 
     // Save better report
@@ -96,7 +94,7 @@ async function main() {
 
 async function backtest() {
   if (typeof process.env.TINKOFF_API_TOKEN === "string") {
-    Logger.setLevel(LoggerLevel.DISABLED);
+    Logger.setLevel(LoggerLevel.DEBUG);
 
     const client = new TinkoffApiClient({
       token: process.env.TINKOFF_API_TOKEN,
@@ -105,59 +103,49 @@ async function backtest() {
       },
     });
 
-    const instrumentsService = new TinkoffInstrumentsService(client);
-    const marketService = new TinkoffMarketService(client);
+    const services = {
+      instrumentsService: new TinkoffInstrumentsService(client),
+      marketDataStream: new BacktestingMarketDataStream(),
+      marketService: new TinkoffMarketService(client),
+      ordersService: new BacktestingOrdersService({ commission: 0.0003 }),
+    };
 
-    const marketDataStream = new BacktestingMarketDataStream();
-    const ordersService = new BacktestingOrdersService({ commission: 0.0003 });
+    const signalResolver = new SampleSignalResolver(
+      {
+        accountId: Globals.sandboxAccountId,
 
-    // Preload instrument
-    await instrumentsService.getInstrumentByFigi({
-      figi: Globals.APPL_SPBX_FIGI,
-    });
+        lotsPerBet: 1,
+        maxConcurrentBets: 1,
+        commission: 0.0003,
 
-    const signalResolver = new SampleSignalResolver({
-      accountId: Globals.sandboxAccountId,
-
-      lotsPerBet: 1,
-      maxConcurrentBets: 1,
-      commission: 0.0003,
-
-      takeProfitPercent: 0.1,
-      stopLossPercent: 0.1,
-
-      updateOrderStateInterval: SEC_IN_MS,
-
-      services: {
-        ordersService,
-        instrumentsService,
-        marketDataStream,
+        takeProfitPercent: 0.1,
+        stopLossPercent: 0.1,
       },
-    });
-    signalResolver.start();
+      services
+    );
 
-    const backtester = await Backtester.of({
-      instrumentFigi: Globals.APPL_SPBX_FIGI,
-      from: new Date(Date.now() - 2 * DAY_IN_MS),
-      amount: 1_000,
-      candleInterval: CandleInterval.CANDLE_INTERVAL_15_MIN,
+    const backtester = await Backtester.of(
+      {
+        instrumentFigi: Globals.APPL_SPBX_FIGI,
+        candleInterval: CandleInterval.CANDLE_INTERVAL_15_MIN,
 
-      services: {
-        marketService,
-        marketDataStream,
+        from: dayjs("28/04/2022", "DD/MM/YYYY").toDate().getTime(),
+        to: dayjs("30/04/2022", "DD/MM/YYYY").toDate().getTime(),
+
+        commission: 0.0003,
       },
+      services
+    );
 
-      commission: 0.0003,
-    });
+    try {
+      await backtester.run({
+        strategy: new BollingerBandsStrategy({ periods: 20, deviation: 2 }),
+        signalReceiver: signalResolver,
+      });
+    } catch (ignored) {}
+    await signalResolver.finishWork();
 
-    await backtester.run({
-      strategy: new BollingerBandsStrategy({ periods: 20, deviation: 2 }),
-      signalReceiver: signalResolver,
-    });
-
-    await signalResolver.forceStop();
-
-    const postedOrders = ordersService.getPostedOrders();
+    const postedOrders = services.ordersService.getPostedOrders();
     console.log("Total posted orders: ", postedOrders.size);
 
     let profit = new Big(0);
@@ -172,14 +160,19 @@ async function backtest() {
 
       sumBetPrices = sumBetPrices.plus(order.totalPrice);
     });
-    const avgBetSize = sumBetPrices.div(postedOrders.size);
 
-    console.log(
-      `Total profit: ${profit.toString()}, (in percent: ${profit
-        .div(avgBetSize)
-        .mul(100)})`
-    );
+    if (postedOrders.size > 0) {
+      const avgBetSize = sumBetPrices.div(postedOrders.size);
+
+      console.log(
+        `Total profit: ${profit.toString()}, (in percent: ${profit
+          .div(avgBetSize)
+          .mul(100)})`
+      );
+    }
   }
 }
+
 // main();
 backtest();
+// fromConfig();

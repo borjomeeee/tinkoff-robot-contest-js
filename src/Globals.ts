@@ -1,6 +1,10 @@
+import { SEC_IN_MS } from "./Helpers/Utils";
+
 export const Globals = {
   isSandbox: true,
-  tinkoffApiDdosInterval: 1000,
+
+  delayBeforeCandleAppears: SEC_IN_MS,
+  updateOrderStateInterval: SEC_IN_MS,
 
   TINKOFF_LSE_FIGI: "BBG005DXJS36",
 
