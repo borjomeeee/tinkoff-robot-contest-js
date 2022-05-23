@@ -1,4 +1,4 @@
-import { IStockMarketRobotStrategySignalReceiver } from "./StockMarketRobotTypes";
+import { ICandlesRobotStrategySignalReceiver } from "./CandlesRobotTypes";
 import { Candle, CandleInterval } from "./Types/Common";
 import { IStrategy } from "./Types/Strategy";
 import { sleep } from "./Helpers/Utils";
@@ -34,7 +34,7 @@ interface IBacktesterBuildServices {
 
 interface IBacktesterRunOptions {
   strategy: IStrategy;
-  signalReceiver: IStockMarketRobotStrategySignalReceiver;
+  signalReceiver: ICandlesRobotStrategySignalReceiver;
 }
 
 export class Backtester {

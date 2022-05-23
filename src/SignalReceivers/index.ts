@@ -1,16 +1,16 @@
 import { IServices } from "../Services/IServices";
 import {
-  IStockMarketRobotStrategySignalReceiver,
-  IStockMarketRobotStrategySignalReceiverOptions,
-} from "../StockMarketRobotTypes";
+  ICandlesRobotStrategySignalReceiver,
+  ICandlesRobotStrategySignalReceiverOptions,
+} from "../CandlesRobotTypes";
 import { SampleSignalResolver } from "./SampleSignalResolver";
 
 export type SignalReceiverConstructor<
-  T extends IStockMarketRobotStrategySignalReceiverOptions
+  T extends ICandlesRobotStrategySignalReceiverOptions
 > = new (
   options: T,
   services: IServices
-) => IStockMarketRobotStrategySignalReceiver;
+) => ICandlesRobotStrategySignalReceiver;
 
 export const SignalReceivers: Record<string, SignalReceiverConstructor<any>> = {
   SampleSignalResolver: SampleSignalResolver,

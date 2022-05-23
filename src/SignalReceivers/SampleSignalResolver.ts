@@ -15,9 +15,9 @@ import { v4 as uuidv4 } from "uuid";
 import { StrategyPredictAction } from "../Types/Strategy";
 
 import {
-  IStockMarketRobotStrategySignal,
-  IStockMarketRobotStrategySignalReceiver,
-} from "../StockMarketRobotTypes";
+  ICandlesRobotStrategySignal,
+  ICandlesRobotStrategySignalReceiver,
+} from "../CandlesRobotTypes";
 import { Logger } from "../Helpers/Logger";
 import { IServices } from "../Services/IServices";
 import { Globals } from "../Globals";
@@ -35,7 +35,7 @@ interface ISampleSignalResolverConfig {
 }
 
 export class SampleSignalResolver
-  implements IStockMarketRobotStrategySignalReceiver
+  implements ICandlesRobotStrategySignalReceiver
 {
   TAG = "SampleSignalResolver";
   Logger = new Logger();
@@ -106,7 +106,7 @@ export class SampleSignalResolver
     return this.signalRealizations;
   }
 
-  async receive(signal: IStockMarketRobotStrategySignal) {
+  async receive(signal: ICandlesRobotStrategySignal) {
     if (!this.isWorking || this.isClosing) {
       return;
     }

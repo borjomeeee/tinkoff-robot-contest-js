@@ -1,5 +1,4 @@
-import { SerializableError } from "../Helpers/Exceptions";
-import { IStockMarketRobotStrategySignal } from "../StockMarketRobotTypes";
+import { ICandlesRobotStrategySignal } from "../CandlesRobotTypes";
 
 export enum SignalRealizationErrorReason {
   POST_OPEN_ORDER = "post-open-order",
@@ -17,8 +16,8 @@ export enum SignalRealizationStatus {
   SUCCESSFUL = "successful",
 }
 
-export interface ISignalRealization {
-  signal: IStockMarketRobotStrategySignal;
+export interface ICandlesRobotSignalRealization {
+  signal: ICandlesRobotStrategySignal;
 
   openOrderId?: string;
   closeOrderId?: string;
@@ -27,8 +26,8 @@ export interface ISignalRealization {
   error: ISignalRealizationError | null;
 }
 
-export class SignalRealization implements ISignalRealization {
-  signal: IStockMarketRobotStrategySignal;
+export class SignalRealization implements ICandlesRobotSignalRealization {
+  signal: ICandlesRobotStrategySignal;
 
   openOrderId?: string;
   closeOrderId?: string;
@@ -36,7 +35,7 @@ export class SignalRealization implements ISignalRealization {
   status: SignalRealizationStatus = SignalRealizationStatus.PROCESSING;
   error: ISignalRealizationError | null = null;
 
-  constructor(signal: IStockMarketRobotStrategySignal) {
+  constructor(signal: ICandlesRobotStrategySignal) {
     this.signal = signal;
   }
 

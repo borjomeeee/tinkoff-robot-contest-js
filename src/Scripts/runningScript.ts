@@ -6,7 +6,7 @@ import { TinkoffMarketDataStream } from "../Services/TinkoffMarketDataStream";
 import { TinkoffMarketService } from "../Services/TinkoffMarketService";
 import { TinkoffOrdersService } from "../Services/TinkoffOrdersService";
 import { SignalReceivers } from "../SignalReceivers";
-import { StockMarketRobot } from "../StockMarketRobot";
+import { CandlesRobot } from "../CandlesRobot";
 import { Strategies } from "../Strategies";
 import { TinkoffApiClient } from "../TinkoffApiClient";
 import { CandleInterval } from "../Types/Common";
@@ -84,7 +84,7 @@ async function main() {
     services
   );
 
-  const stockMarketRobot = new StockMarketRobot({ signalReceiver }, services);
+  const stockMarketRobot = new CandlesRobot({ signalReceiver }, services);
 
   if (typeof config.instrumentFigi !== "string") {
     throw new Error("instrumentFigi incorrect or not found!");

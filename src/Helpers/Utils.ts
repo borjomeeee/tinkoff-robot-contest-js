@@ -8,7 +8,7 @@ import {
 } from "../Types/Common";
 import { Globals } from "../Globals";
 import { OrderExecutionStatus } from "../Types/Order";
-import { IStockMarketRobotStrategySignal } from "../StockMarketRobotTypes";
+import { ICandlesRobotStrategySignal } from "../CandlesRobotTypes";
 import { v5 as uuidv5 } from "uuid";
 
 export class Terminatable {
@@ -173,7 +173,7 @@ export class TimestampUtils {
 }
 
 export class SignalUtils {
-  static getId(signal: IStockMarketRobotStrategySignal) {
+  static getId(signal: ICandlesRobotStrategySignal) {
     const { robotId, instrumentFigi, lastCandle } = signal;
     return uuidv5(
       `${robotId}$${instrumentFigi}${lastCandle.time.toString()}`,

@@ -1,12 +1,13 @@
 import { v4 as uuidv4 } from "uuid";
 import {
-  IStockMarketRobotStrategySignal,
-  IStockMarketRobotStrategySignalReceiver,
-} from "./StockMarketRobotTypes";
-import { Candle, CandleInterval, Instrument, TradingDay } from "./Types/Common";
+  ICandlesRobotConfig,
+  ICandlesRobotStartOptions,
+  ICandlesRobotStrategySignal,
+  ICandlesRobotWorkOptions,
+} from "./CandlesRobotTypes";
+import { Candle, Instrument, TradingDay } from "./Types/Common";
 import { Globals } from "./Globals";
 import { Logger } from "./Helpers/Logger";
-import { IStrategy } from "./Types/Strategy";
 import {
   CandleUtils,
   DAY_IN_MS,
@@ -18,34 +19,11 @@ import {
 
 import { IServices } from "./Services/IServices";
 
-export interface IStockMarketRobotConfig {
-  signalReceiver: IStockMarketRobotStrategySignalReceiver;
-}
-
-export interface IStockMarketRobotStartOptions {
-  instrumentFigi: string;
-  candleInterval: CandleInterval;
-
-  strategy: IStrategy;
-
-  // Таймстемп когда бот должен завершить свою работу
-  terminateAt?: number;
-}
-
-interface IStockMarketWorkOptions {
-  instrumentFigi: string;
-  candleInterval: CandleInterval;
-
-  strategy: IStrategy;
-
-  finishTime: number;
-}
-
-export class StockMarketRobot {
+export class CandlesRobot {
   private id = "robot" + uuidv4();
 
   private services: IServices;
-  private config: IStockMarketRobotConfig;
+  private config: ICandlesRobotConfig;
 
   TAG = "StockMarketRobot";
   Logger = new Logger();
@@ -55,15 +33,14 @@ export class StockMarketRobot {
   private isRunning = false;
   private error: Error | null = null;
 
-  private makedSignals: Map<string, IStockMarketRobotStrategySignal> =
-    new Map();
+  private makedSignals: Map<string, ICandlesRobotStrategySignal> = new Map();
 
-  constructor(config: IStockMarketRobotConfig, services: IServices) {
+  constructor(config: ICandlesRobotConfig, services: IServices) {
     this.config = config;
     this.services = services;
   }
 
-  private async work(options: IStockMarketWorkOptions) {
+  private async work(options: ICandlesRobotWorkOptions) {
     const { marketService } = this.services;
     const { signalReceiver } = this.config;
 
@@ -96,7 +73,7 @@ export class StockMarketRobot {
       const predictAction = await strategy.predict(lastCandles);
 
       if (predictAction) {
-        const signal: IStockMarketRobotStrategySignal = {
+        const signal: ICandlesRobotStrategySignal = {
           strategy: strategy.toString(),
           predictAction,
           instrumentFigi,
@@ -140,7 +117,7 @@ export class StockMarketRobot {
     }
   }
 
-  async run(options: IStockMarketRobotStartOptions) {
+  async run(options: ICandlesRobotStartOptions) {
     const { instrumentsService } = this.services;
 
     if (this.isRunning) {
@@ -161,9 +138,7 @@ export class StockMarketRobot {
     if (terminateAt) {
       const remainedToTerminate = terminateAt - Date.now();
       remainedToTerminate > 0 &&
-        (await this.sleepIfRunning(remainedToTerminate).then(() =>
-          this.stop()
-        ));
+        this.sleepIfRunning(remainedToTerminate).then(() => this.stop());
     }
 
     try {

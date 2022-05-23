@@ -5,7 +5,7 @@ import { CandleInterval, OrderDirection } from "./Types/Common";
 import { Globals } from "./Globals";
 import { Logger, LoggerLevel } from "./Helpers/Logger";
 
-import { StockMarketRobot } from "./StockMarketRobot";
+import { CandlesRobot } from "./CandlesRobot";
 import { TinkoffApiClient } from "./TinkoffApiClient";
 import { Backtester } from "./Backtester";
 import { BacktestingOrdersService } from "./Services/BacktestingOrdersService";
@@ -64,7 +64,7 @@ async function main() {
       services
     );
 
-    const marketRobot = new StockMarketRobot(
+    const marketRobot = new CandlesRobot(
       {
         signalReceiver: signalResolver,
       },
