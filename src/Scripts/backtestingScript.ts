@@ -114,6 +114,8 @@ async function main() {
   const from = dayjs(config.startDate, "DD/MM/YYYY").toDate().getTime();
   const to = dayjs(config.endDate, "DD/MM/YYYY").toDate().getTime();
 
+  console.log("Config: ", JSON.stringify(config));
+
   const backtester = await Backtester.of(
     {
       instrumentFigi,

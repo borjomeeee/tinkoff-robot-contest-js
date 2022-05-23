@@ -4,6 +4,10 @@ import { IStrategy } from "./Types/Strategy";
 import { sleep } from "./Helpers/Utils";
 import { IBacktestMarketDataStream } from "./Services/IBacktestMarketDataStream";
 import { IMarketService } from "./Services/IMarketService";
+import {
+  BacktestingCacheManager,
+  BacktestingCacheManagerOptions,
+} from "./BacktestingCacheManageer";
 
 interface IBacktesterConfig {
   instrumentFigi: string;
@@ -47,12 +51,29 @@ export class Backtester {
     const { instrumentFigi, from, to, candleInterval } = options;
     const { marketDataStream, marketService } = services;
 
-    const candlesHistory = await marketService.getCandles({
+    const cacheManager = new BacktestingCacheManager();
+    let candlesHistory = [];
+
+    const cacheOptions: BacktestingCacheManagerOptions = {
       instrumentFigi,
-      from: new Date(from),
-      to: new Date(to),
-      interval: candleInterval,
-    });
+      startDate: new Date(from),
+      endDate: new Date(to),
+    };
+
+    if (cacheManager.has(cacheOptions)) {
+      candlesHistory = await cacheManager.load(cacheOptions);
+    } else {
+      candlesHistory = await marketService.getCandles({
+        instrumentFigi,
+        from: new Date(from),
+        to: new Date(to),
+        interval: candleInterval,
+      });
+
+      try {
+        await cacheManager.save(cacheOptions, candlesHistory);
+      } catch (ignored) {}
+    }
 
     return new Backtester({
       candlesHistory,
@@ -68,7 +89,11 @@ export class Backtester {
     const { strategy, signalReceiver } = options;
 
     const candlesForApply = strategy.getMinimalCandlesNumberToApply();
-    for (let i = candlesForApply; i < candlesHistory.length; i++) {
+    for (
+      let i = candlesForApply;
+      i <= candlesHistory.length - candlesForApply;
+      i++
+    ) {
       const candles = candlesHistory.slice(i, candlesForApply + i);
       const predictAction = await strategy.predict(candles);
 

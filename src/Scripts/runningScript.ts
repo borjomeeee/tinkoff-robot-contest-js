@@ -97,6 +97,8 @@ async function main() {
   const instrumentFigi = config.instrumentFigi;
   const candleInterval = candleIntervalFromStr[config.candleInterval];
 
+  console.log("Start config: ", JSON.stringify(config));
+
   // Wait for complete job or press stop
   await new Promise<void>(async (resolve) => {
     console.log(`Please type 'stop' to terminate bot ...`);
