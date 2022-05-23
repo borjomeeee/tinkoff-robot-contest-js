@@ -18,19 +18,19 @@ let lastPricesSubscriptions: Map<
   LastPriceSubscription,
   LastPriceSubscriptionOptions
 > = new Map();
-
-let marketDataStream: any | undefined = undefined;
 export class TinkoffMarketDataStream implements IMarketDataStream {
   TAG = "TinkoffMarketDataStream";
   Logger = new Logger();
 
   private client: TinkoffApiClient;
+
+  private marketDataStream: any | undefined = undefined;
   constructor(client: TinkoffApiClient) {
     this.client = client;
   }
 
   subscribeCandles(options: CandleSubscriptionOptions, fn: CandleSupscription) {
-    if (!marketDataStream) {
+    if (!this.marketDataStream) {
       this._openMarketDataStream();
     }
 
@@ -39,7 +39,7 @@ export class TinkoffMarketDataStream implements IMarketDataStream {
       `Subscribe candles: ${JSON.stringify(options)}`
     );
 
-    marketDataStream.write({
+    this.marketDataStream.write({
       subscribeCandlesRequest: {
         instruments: [
           {
@@ -79,8 +79,8 @@ export class TinkoffMarketDataStream implements IMarketDataStream {
       }
     });
 
-    if (marketDataStream && !usedByAnotherSub) {
-      marketDataStream.write({
+    if (this.marketDataStream && !usedByAnotherSub) {
+      this.marketDataStream.write({
         subscribeCandlesRequest: {
           instruments: [
             {
@@ -98,7 +98,7 @@ export class TinkoffMarketDataStream implements IMarketDataStream {
     options: LastPriceSubscriptionOptions,
     fn: LastPriceSubscription
   ) {
-    if (!marketDataStream) {
+    if (!this.marketDataStream) {
       this._openMarketDataStream();
     }
 
@@ -107,7 +107,7 @@ export class TinkoffMarketDataStream implements IMarketDataStream {
       `Subscribe last price: ${JSON.stringify(options)}`
     );
 
-    marketDataStream.write({
+    this.marketDataStream.write({
       subscribeLastPriceRequest: {
         instruments: [{ figi: options.figi }],
         subscriptionAction: "SUBSCRIPTION_ACTION_SUBSCRIBE",
@@ -139,8 +139,8 @@ export class TinkoffMarketDataStream implements IMarketDataStream {
       }
     });
 
-    if (marketDataStream && !usedByAnotherSub) {
-      marketDataStream.write({
+    if (this.marketDataStream && !usedByAnotherSub) {
+      this.marketDataStream.write({
         subscribeLastPriceRequest: {
           instruments: [{ figi: currentOptions.figi }],
           subscriptionAction: "SUBSCRIPTION_ACTION_UNSUBSCRIBE",
@@ -153,22 +153,22 @@ export class TinkoffMarketDataStream implements IMarketDataStream {
     const self = this;
 
     self.Logger.debug(self.TAG, "Open marketDataStream connection");
-    marketDataStream = self.client.marketDataStream.marketDataStream();
+    this.marketDataStream = self.client.marketDataStream.marketDataStream();
 
-    marketDataStream.on("close", function () {
+    this.marketDataStream.on("close", function () {
       self.Logger.debug(self.TAG, "Close marketDataStream connection");
     });
 
-    marketDataStream.on("close", function () {
+    this.marketDataStream.on("close", function () {
       self.Logger.debug(self.TAG, "Close marketDataStream connection");
     });
 
-    marketDataStream.on("error", function (e: any) {
+    this.marketDataStream.on("error", function (e: any) {
       self.Logger.error(self.TAG, `marketDataStream get error: ${e.message}`);
       throw e;
     });
 
-    marketDataStream.on("data", function (feature: any) {
+    this.marketDataStream.on("data", function (feature: any) {
       if (feature.payload === "candle") {
         const candle = self._parseCandle(feature.candle);
         const figi = feature.figi;
@@ -183,7 +183,7 @@ export class TinkoffMarketDataStream implements IMarketDataStream {
 
       if (feature.payload === "lastPrice") {
         const price = self._parseLastPrice(feature.lastPrice);
-        const figi = feature.figi;
+        const figi = feature.lastPrice.figi;
 
         self.Logger.debug(
           self.TAG,
@@ -197,8 +197,8 @@ export class TinkoffMarketDataStream implements IMarketDataStream {
 
   private closeMarketDataStreamIfNeeded() {
     if (candlesSubscriptions.size === 0 && lastPricesSubscriptions.size === 0) {
-      marketDataStream.destroy();
-      marketDataStream = undefined;
+      this.marketDataStream.destroy();
+      this.marketDataStream = undefined;
     }
   }
 

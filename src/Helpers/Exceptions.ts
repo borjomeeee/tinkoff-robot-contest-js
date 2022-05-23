@@ -7,17 +7,17 @@ import { TradingSchedulesRequest } from "@tinkoff/invest-js/build/generated/tink
 
 export class SerializableError extends Error {
   protected reason: string;
-  message: string;
-
   constructor(reason: string, message?: string) {
     super(message);
-
-    this.message = `[${reason}] ${message}` || "undef";
     this.reason = reason;
   }
 
-  toString() {
+  toString(): string {
     return JSON.stringify({ reason: this.reason, message: this.message });
+  }
+
+  get message() {
+    return this.toString();
   }
 }
 
@@ -59,18 +59,36 @@ export class GetCandlesFatalError extends SerializableError {
 
 export class PostOrderFatalError extends SerializableError {
   constructor(request: PostOrderRequest, error?: string) {
-    super("post-order-error", JSON.stringify({ request, error }));
+    super(
+      "post-order-error",
+      JSON.stringify({
+        request,
+        error,
+      })
+    );
   }
 }
 
 export class GetOrderStateFatalError extends SerializableError {
   constructor(request: GetOrderStateRequest, error?: string) {
-    super("get-order-state-error", JSON.stringify({ request, error }));
+    super(
+      "get-order-state-error",
+      JSON.stringify({
+        request,
+        error,
+      })
+    );
   }
 }
 
 export class GetAccountOrdersFatalError extends SerializableError {
   constructor(request: GetOrdersRequest, error?: string) {
-    super("get-account-orders-error", JSON.stringify({ request, error }));
+    super(
+      "get-account-orders-error",
+      JSON.stringify({
+        request,
+        error,
+      })
+    );
   }
 }
