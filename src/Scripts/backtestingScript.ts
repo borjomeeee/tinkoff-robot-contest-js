@@ -16,6 +16,8 @@ var customParseFormat = require("dayjs/plugin/customParseFormat");
 dayjs.extend(customParseFormat);
 
 async function main() {
+  (process.env as any).isBactesting = true;
+
   await Logger.setFilePath("log-backtest.txt");
   Logger.setLevel(LoggerLevel.DEBUG);
 

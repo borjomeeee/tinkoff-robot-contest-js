@@ -88,75 +88,18 @@ async function main() {
     // writeFile(file, JSON.stringify(signalRealizations));
     // file.close();
 
-    client.instruments.shares({}, (x, y) => {
-      if (x) {
-        console.log(x);
-      }
+    // client.instruments.shares({}, (x, y) => {
+    //   if (x) {
+    //     console.log(x);
+    //   }
 
-      console.log(
-        x,
-        y!.instruments.filter((x) => x.ticker === "BAC")
-      );
-    });
+    //   console.log(
+    //     x,
+    //     y!.instruments.filter((x) => x.ticker === "BAC")
+    //   );
+    // });
 
     // console.log(new SerializableError("helo", "world").toString());
-  }
-}
-
-async function backtest() {
-  if (typeof process.env.TINKOFF_API_TOKEN === "string") {
-    Logger.setLevel(LoggerLevel.DEBUG);
-
-    const client = new TinkoffApiClient({
-      token: process.env.TINKOFF_API_TOKEN,
-      metadata: {
-        "x-app-name": "borjomeeee.tinkoff-robot-contest-js",
-      },
-    });
-
-    const services = {
-      instrumentsService: new TinkoffInstrumentsService(client),
-      marketDataStream: new BacktestingMarketDataStream(),
-      marketService: new TinkoffMarketService(client),
-      ordersService: new BacktestingOrdersService({ commission: 0.0003 }),
-    };
-
-    const signalResolver = new SampleSignalResolver(
-      {
-        accountId: Globals.sandboxAccountId,
-
-        lotsPerBet: 1,
-        maxConcurrentBets: 1,
-
-        takeProfitPercent: 0.1,
-        stopLossPercent: 0.1,
-      },
-      services
-    );
-
-    const backtester = await Backtester.of(
-      {
-        instrumentFigi: Globals.APPL_SPBX_FIGI,
-        candleInterval: CandleInterval.CANDLE_INTERVAL_15_MIN,
-
-        from: dayjs("28/04/2022", "DD/MM/YYYY").toDate().getTime(),
-        to: dayjs("30/04/2022", "DD/MM/YYYY").toDate().getTime(),
-
-        commission: 0.0003,
-      },
-      services
-    );
-
-    try {
-      await backtester.run({
-        strategy: new BollingerBandsStrategy({ periods: 20, deviation: 2 }),
-        signalReceiver: signalResolver,
-      });
-    } catch (ignored) {}
-    await signalResolver.finishWork();
-
-    const postedOrders = await services.ordersService.getPostedOrders();
-    showOrdersStatistic(postedOrders);
   }
 }
 

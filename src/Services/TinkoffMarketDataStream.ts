@@ -159,8 +159,13 @@ export class TinkoffMarketDataStream implements IMarketDataStream {
       self.Logger.debug(self.TAG, "Close marketDataStream connection");
     });
 
+    marketDataStream.on("close", function () {
+      self.Logger.debug(self.TAG, "Close marketDataStream connection");
+    });
+
     marketDataStream.on("error", function (e: any) {
       self.Logger.error(self.TAG, `marketDataStream get error: ${e.message}`);
+      throw e;
     });
 
     marketDataStream.on("data", function (feature: any) {

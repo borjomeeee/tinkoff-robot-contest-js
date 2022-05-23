@@ -408,7 +408,7 @@ export class SampleSignalResolver
   }
 
   async finishWork() {
-    if (this.config.forceCloseOnFinish) {
+    if (this.config.forceCloseOnFinish || process.env.isBacktesting) {
       await this.forceStop();
     } else {
       await this.stop();
