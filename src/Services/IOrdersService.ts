@@ -8,6 +8,8 @@ export interface IOrdersService {
   ) => Promise<UncompletedOrder>;
   getOrderState: (options: GetOrderStateOptions) => Promise<Order>;
 
+  getPostedOrders: () => Promise<Order[]>;
+
   // Can be extended
 
   // postLimitOrder: (options: PostLimitOrderOptions) => Promise<UncompletedOrder>;

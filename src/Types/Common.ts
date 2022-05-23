@@ -46,6 +46,8 @@ export interface Instrument {
   ipoDate?: number;
   // Доступность торгов через апи
   tradable: boolean;
+
+  minPriceStep: Big;
 }
 
 export interface Candle {

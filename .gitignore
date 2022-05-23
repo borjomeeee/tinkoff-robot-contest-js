@@ -2,4 +2,6 @@
 /node_modules
 log-*.txt
 report-*.json
-/.cache
+/cache
+/reports
+/logs

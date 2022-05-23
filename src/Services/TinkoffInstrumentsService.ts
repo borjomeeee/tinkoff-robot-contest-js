@@ -1,6 +1,6 @@
 import { Instrument, TradingDay, TradingSchedule } from "../Types/Common";
 import { Logger } from "../Helpers/Logger";
-import { TimestampUtils } from "../Helpers/Utils";
+import { QuotationUtils, TimestampUtils } from "../Helpers/Utils";
 
 import { InstrumentRequest } from "@tinkoff/invest-js/build/generated/tinkoff/public/invest/api/contract/v1/InstrumentRequest";
 
@@ -153,11 +153,10 @@ export class TinkoffInstrumentsService implements IInstrumentsService {
       uid: feature.uid,
       ticker: feature.ticker,
 
-      ipoDate: feature.ipoDate
-        ? TimestampUtils.toDate(feature.ipoDate).getTime()
-        : undefined,
       tradable: feature.apiTradeAvailableFlag,
       lot: feature.lot,
+
+      minPriceStep: QuotationUtils.toBig(feature.minPriceIncrement),
     };
   }
 }

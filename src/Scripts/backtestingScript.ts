@@ -5,18 +5,18 @@ import { TinkoffMarketService } from "../Services/TinkoffMarketService";
 import { SignalReceivers } from "../SignalReceivers";
 import { Strategies } from "../Strategies";
 import { TinkoffApiClient } from "../TinkoffApiClient";
-import { CandleInterval, OrderDirection } from "../Types/Common";
+import { CandleInterval } from "../Types/Common";
 import { BacktestingOrdersService } from "../Services/BacktestingOrdersService";
 import { BacktestingMarketDataStream } from "../Services/BacktestingMarketDataStream";
 import { Backtester } from "../Backtester";
 
 import dayjs from "dayjs";
-import Big from "big.js";
+import { showOrdersStatistic } from "./utils";
 var customParseFormat = require("dayjs/plugin/customParseFormat");
 dayjs.extend(customParseFormat);
 
 async function main() {
-  await Logger.setFilePath("./log-backtest.txt");
+  await Logger.setFilePath("log-backtest.txt");
   Logger.setLevel(LoggerLevel.DEBUG);
 
   const config = require("./backtestingConfig.json");
@@ -134,33 +134,8 @@ async function main() {
   await backtester.run({ signalReceiver, strategy });
   await signalReceiver.finishWork();
 
-  const postedOrders = services.ordersService.getPostedOrders();
-
-  let profit = new Big(0);
-  let sumBetPrices = new Big(0);
-
-  postedOrders.forEach((order) => {
-    if (order.direction === OrderDirection.BUY) {
-      profit = profit.minus(order.totalPrice.plus(order.totalCommission));
-    } else {
-      profit = profit.plus(order.totalPrice.minus(order.totalCommission));
-    }
-
-    sumBetPrices = sumBetPrices.plus(order.totalPrice);
-  });
-
-  console.log("Total posted orders: ", postedOrders.size);
-
-  if (postedOrders.size > 0) {
-    const avgBetSize = sumBetPrices.div(postedOrders.size);
-
-    console.log(
-      `Total profit: ${profit.toString()}, (in percent: ${profit
-        .div(avgBetSize)
-        .mul(100)
-        .toFixed(2)}%)`
-    );
-  }
+  const postedOrders = await services.ordersService.getPostedOrders();
+  showOrdersStatistic(postedOrders);
 
   process.exit(0);
 }

@@ -20,6 +20,7 @@ import { IServices } from "./Services/IServices";
 
 import dayjs from "dayjs";
 import { SerializableError } from "./Helpers/Exceptions";
+import { showOrdersStatistic } from "./Scripts/utils";
 var customParseFormat = require("dayjs/plugin/customParseFormat");
 dayjs.extend(customParseFormat);
 
@@ -154,31 +155,8 @@ async function backtest() {
     } catch (ignored) {}
     await signalResolver.finishWork();
 
-    const postedOrders = services.ordersService.getPostedOrders();
-    console.log("Total posted orders: ", postedOrders.size);
-
-    let profit = new Big(0);
-    let sumBetPrices = new Big(0);
-
-    postedOrders.forEach((order) => {
-      if (order.direction === OrderDirection.BUY) {
-        profit = profit.minus(order.totalPrice.plus(order.totalCommission));
-      } else {
-        profit = profit.plus(order.totalPrice.minus(order.totalCommission));
-      }
-
-      sumBetPrices = sumBetPrices.plus(order.totalPrice);
-    });
-
-    if (postedOrders.size > 0) {
-      const avgBetSize = sumBetPrices.div(postedOrders.size);
-
-      console.log(
-        `Total profit: ${profit.toString()}, (in percent: ${profit
-          .div(avgBetSize)
-          .mul(100)})`
-      );
-    }
+    const postedOrders = await services.ordersService.getPostedOrders();
+    showOrdersStatistic(postedOrders);
   }
 }
 

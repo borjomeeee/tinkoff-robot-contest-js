@@ -70,11 +70,11 @@ export class BacktestingOrdersService implements IOrdersService {
     }
   }
 
-  getPostedOrders() {
-    return this.postedOrders;
+  async getPostedOrders() {
+    return Array.from(this.postedOrders.values());
   }
 
-  orderToString(orderId: string, accountId: string) {
+  private orderToString(orderId: string, accountId: string) {
     return `Order(orderId=${orderId}, accountId=${accountId})`;
   }
 }

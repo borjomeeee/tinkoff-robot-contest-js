@@ -9,7 +9,7 @@ export interface BacktestingCacheManagerOptions {
   endDate: Date;
 }
 
-const cacheDir = ".cache";
+const cacheDir = "cache";
 
 export class BacktestingCacheManager {
   has(options: BacktestingCacheManagerOptions) {
@@ -49,6 +49,6 @@ export class BacktestingCacheManager {
 
   private getFilePath(options: BacktestingCacheManagerOptions) {
     const { instrumentFigi, startDate, endDate } = options;
-    return `.cache/${instrumentFigi}__${startDate.toISOString()}__${endDate.toISOString()}.json`;
+    return `${cacheDir}/${instrumentFigi}__${startDate.toISOString()}__${endDate.toISOString()}.json`;
   }
 }

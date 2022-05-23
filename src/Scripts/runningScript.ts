@@ -13,16 +13,19 @@ import { CandleInterval } from "../Types/Common";
 import { open, writeFile } from "node:fs/promises";
 
 import dayjs from "dayjs";
+import { createFolder, showOrdersStatistic } from "./utils";
 var customParseFormat = require("dayjs/plugin/customParseFormat");
 dayjs.extend(customParseFormat);
 
 async function main() {
   const startDateIso = new Date().toISOString();
 
-  await Logger.setFilePath(`./log-${startDateIso}.txt`);
+  createFolder("logs");
+  await Logger.setFilePath(`./logs/log-${startDateIso}.txt`);
   Logger.setLevel(LoggerLevel.DEBUG);
 
-  let reportPath = `./report-${startDateIso}.json`;
+  createFolder("reports");
+  let reportPath = `./reports/report-${startDateIso}.json`;
 
   const config = require("./runningConfig.json");
   if (!process.env.TINKOFF_API_TOKEN) {
@@ -97,26 +100,30 @@ async function main() {
   const instrumentFigi = config.instrumentFigi;
   const candleInterval = candleIntervalFromStr[config.candleInterval];
 
+  const norifyAboutStop = () =>
+    console.log(`Please type 'stop' to terminate bot ...`);
+
   // For show debug info (only sample bot)
   const initialReceive = signalReceiver.receive.bind(signalReceiver);
   signalReceiver.receive = async (signal) => {
     const report = await initialReceive(signal);
     if (report) {
       console.log(`Signal was realized: ${JSON.stringify(report)}`);
+      norifyAboutStop();
     }
   };
   console.log("Start config: ", JSON.stringify(config));
 
   // Wait for complete job or press stop
   await new Promise<void>(async (resolve) => {
-    console.log(`Please type 'stop' to terminate bot ...`);
+    norifyAboutStop();
 
     process.stdin.on("data", (buffer) => {
       if (buffer.toString().trim() === "stop") {
         stockMarketRobot.stop();
         resolve();
       } else {
-        console.log(`Please type 'stop' to terminate bot ...`);
+        norifyAboutStop();
       }
     });
 
@@ -134,6 +141,9 @@ async function main() {
 
   const robotReport = stockMarketRobot.makeReport();
   const signalReceiverReport = await signalReceiver.finishWork();
+
+  const postedOrders = await services.ordersService.getPostedOrders();
+  showOrdersStatistic(postedOrders);
 
   const report = {
     start: startDateIso,

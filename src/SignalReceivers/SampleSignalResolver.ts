@@ -3,7 +3,7 @@ import {
   OrderExecutionStatus,
   UncompletedOrder,
 } from "../Types/Order";
-import { OrderDirection } from "../Types/Common";
+import { Instrument, OrderDirection } from "../Types/Common";
 import { noop, SignalUtils, sleep, Terminatable } from "../Helpers/Utils";
 import {
   SignalRealization,
@@ -207,7 +207,7 @@ export class SampleSignalResolver
     // Wait for resolver gets satisfy price
     const stopLossOrTakeProfitPrice = await this.waitForCanStopLossOrTakeProfit(
       completedOpenOrder,
-      instrument.lot
+      instrument
     ).catch((e) => {
       this.signalRealizations[signalId].handleError(
         SignalRealizationErrorReason.FATAL,
@@ -261,12 +261,13 @@ export class SampleSignalResolver
 
   private waitForCanStopLossOrTakeProfit(
     order: CompletedOrder,
-    instrumentLot: number
+    instrument: Instrument
   ) {
     const { takeProfitPercent, stopLossPercent } = this.config;
     const { marketDataStream } = this.services;
 
-    const instrumentPrice = order.totalPrice.div(order.lots).div(instrumentLot);
+    const { lot } = instrument;
+    const instrumentPrice = order.totalPrice.div(order.lots).div(lot);
 
     const takeProfit = instrumentPrice.plus(
       instrumentPrice.mul(takeProfitPercent)
@@ -289,7 +290,7 @@ export class SampleSignalResolver
       let lastPrice = order.totalPrice
         .minus(order.totalCommission)
         .div(order.lots)
-        .div(instrumentLot);
+        .div(lot);
 
       if (!this.isWorking) {
         res(lastPrice);

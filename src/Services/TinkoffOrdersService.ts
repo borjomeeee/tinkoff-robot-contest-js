@@ -38,6 +38,9 @@ export class TinkoffOrdersService implements IOrdersService {
   private client: TinkoffApiClient;
   private isSandbox: boolean;
 
+  private postedOrders: Map<string, { accountId: string; orderId: string }> =
+    new Map();
+
   constructor(options: ITinkoffOrdersServiceConstructorOptions) {
     this.client = options.client;
     this.isSandbox = options.isSandbox;
@@ -89,6 +92,10 @@ export class TinkoffOrdersService implements IOrdersService {
           }
 
           const data = this._parseUncompletedOrder(v, options);
+          this.postedOrders.set(data.id, {
+            accountId: data.accountId,
+            orderId: data.id,
+          });
 
           this.Logger.debug(
             this.TAG,
@@ -216,6 +223,14 @@ export class TinkoffOrdersService implements IOrdersService {
         }
       });
     });
+  }
+
+  getPostedOrders() {
+    return Promise.all(
+      Array.from(this.postedOrders.values()).map(({ orderId, accountId }) =>
+        this.getOrderState({ orderId, accountId })
+      )
+    );
   }
 
   _parseUncompletedOrder(
