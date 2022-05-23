@@ -11,6 +11,7 @@ interface BollingerBandsStrategyConfig extends IStrategyOptions {
   deviation: number;
 }
 
+// https://en.wikipedia.org/wiki/Bollinger_Bands
 export class BollingerBandsStrategy implements IStrategy {
   config: BollingerBandsStrategyConfig;
   constructor(config: BollingerBandsStrategyConfig) {
@@ -45,9 +46,7 @@ export class BollingerBandsStrategy implements IStrategy {
       } else if (lastCandle.close.lte(lower_bb)) {
         return StrategyPredictAction.SELL;
       }
-    } catch (ignored) {
-      console.log(ignored.message);
-    }
+    } catch (ignored) {}
   }
 
   _get_sma(candles: Candle[], periods: number) {

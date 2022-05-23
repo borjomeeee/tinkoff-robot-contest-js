@@ -18,7 +18,5 @@ export const Globals = {
   YNDX_MOEX_FIGI: "BBG006L8G4H1",
   VTBR_MOEX_FIGI: "BBG004730ZJ9",
 
-  realAccountId: "2011436587",
-  sandboxAccountId: "b7291f16-812e-41e6-bf5c-1b211fd2ad5b",
   uuidNamespace: "7e255a4c-ff9a-409b-957f-65115fadc5eb",
 };

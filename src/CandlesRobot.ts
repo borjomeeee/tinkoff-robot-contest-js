@@ -19,13 +19,26 @@ import {
 
 import { IServices } from "./Services/IServices";
 
+
+/**
+ * Данный класс отслеживает изменения котировок инструмента
+ * и на основе переданной ему стратегии, генерирует сигналы
+ * к покупке или продаже
+ * 
+ * Обновление котировок происходит через таймер. Данное решение
+ * связано с тем, что при подписке я не могу гарантировать что все свечи
+ * обязательно придут (в случае если цена инструмента меняться не будет, и 
+ * не будет происходить никаких сделок, то возможна ситуация когда одна свеча или
+ * несколько могут просто не прийти что скажется на генерации сиганлов.
+ * ps. специально задавал этот вопрос в телеге)
+ */
 export class CandlesRobot {
-  private id = "robot" + uuidv4();
+  private id = "crobot_" + uuidv4();
 
   private services: IServices;
   private config: ICandlesRobotConfig;
 
-  TAG = "StockMarketRobot";
+  TAG = "CandlesRobot";
   Logger = new Logger();
 
   private terminatable = new Terminatable();
@@ -40,6 +53,10 @@ export class CandlesRobot {
     this.services = services;
   }
 
+  /**
+   * Отслеживает котировки инструмента в течение переданного
+   * торгового дня
+   */
   private async work(options: ICandlesRobotWorkOptions) {
     const { marketService } = this.services;
     const { signalReceiver } = this.config;
@@ -71,7 +88,6 @@ export class CandlesRobot {
       }
 
       const predictAction = await strategy.predict(lastCandles);
-
       if (predictAction) {
         const signal: ICandlesRobotStrategySignal = {
           strategy: strategy.toString(),
@@ -106,7 +122,9 @@ export class CandlesRobot {
         instrumentFigi,
         interval: candleInterval,
 
-        // handle opened candle
+
+        // increment to one, because can get candle with isCompleted=false
+        // but, strategies must recieve only completed candles
         amount: amount + 1,
 
         // to make sure we have actual data
@@ -117,6 +135,9 @@ export class CandlesRobot {
     }
   }
 
+  /**
+   * Робот начинает свою работу
+   */
   async run(options: ICandlesRobotStartOptions) {
     const { instrumentsService } = this.services;
 
@@ -221,6 +242,7 @@ export class CandlesRobot {
     return this.id;
   }
 
+  // request today and tommorow trading days
   private async getTradingDaysForNow(instrument: Instrument) {
     const { instrumentsService } = this.services;
 
@@ -242,7 +264,6 @@ export class CandlesRobot {
   }
 
   private waitForCandleClose(candle: Candle, intervalTime: number) {
-    // Wait for next candle
     const nextCandleOpenTime =
       intervalTime - (Date.now() - (candle.time + intervalTime));
     if (nextCandleOpenTime > 0) {

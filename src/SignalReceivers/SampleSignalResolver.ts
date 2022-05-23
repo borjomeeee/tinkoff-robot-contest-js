@@ -34,6 +34,11 @@ interface ISampleSignalResolverConfig {
   forceCloseOnFinish?: boolean;
 }
 
+/**
+ * Класс отвечающий за получение и реализацию сигналов.
+ * При получении сигнала выставляется и ожидает момента,
+ * когда сработает изначально заданные takeProfit и stopLoss
+ */
 export class SampleSignalResolver
   implements ICandlesRobotStrategySignalReceiver
 {
@@ -94,6 +99,9 @@ export class SampleSignalResolver
   private startProcessingSignal() {
     this.processingSignals++;
   }
+
+  // Когда кол-во сигналов становится нулевым, значит он простаивает без работы
+  // и можно считать что он завершил работу
   private stopProcessingSignal() {
     this.processingSignals--;
     if (this.processingSignals === 0) {
@@ -154,7 +162,7 @@ export class SampleSignalResolver
       this.stopProcessingSignal();
       this.signalRealizations[signalId].handleError(
         SignalRealizationErrorReason.FATAL,
-        new Error("instrument not tradable!")
+        new Error("instrument-not-tradable")
       );
       return this.signalRealizations[signalId];
     }
@@ -177,6 +185,7 @@ export class SampleSignalResolver
         accountId,
         orderId: openOrderId,
 
+        // bactesting parameter
         _price: signal.lastCandle.close,
       })
       .catch((e) => {
@@ -186,6 +195,7 @@ export class SampleSignalResolver
         );
       })
       .then((openOrder) => {
+        // if order successfully created - wait for it completion
         if (openOrder) {
           this.signalRealizations[signalId].setOpenOrderId(openOrder.id);
           return this.waitForCompleteOrder(openOrder);
@@ -198,7 +208,7 @@ export class SampleSignalResolver
         );
       });
 
-    // If get error on post openOrder
+    // If get error on post openOrder or waiting for completion
     if (!completedOpenOrder) {
       this.stopProcessingSignal();
       return this.signalRealizations[signalId];
@@ -234,6 +244,7 @@ export class SampleSignalResolver
         accountId,
         orderId: closeOrderId,
 
+        // bactesting parameter
         _price: stopLossOrTakeProfitPrice,
       })
       .catch((e) => {
@@ -243,6 +254,7 @@ export class SampleSignalResolver
         );
       })
       .then((closeOrder) => {
+        // if order successfully created - wait for it completion
         if (closeOrder) {
           this.signalRealizations[signalId].setCloseOrderId(closeOrder.id);
           return this.waitForCompleteOrder(closeOrder);

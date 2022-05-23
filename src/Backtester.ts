@@ -37,6 +37,10 @@ interface IBacktesterRunOptions {
   signalReceiver: ICandlesRobotStrategySignalReceiver;
 }
 
+/**
+ * Класс выступает в роли иммитатора биржи
+ * на основе переданной истории свечей
+ */
 export class Backtester {
   private config: IBacktesterConfig;
 
@@ -63,6 +67,7 @@ export class Backtester {
     if (cacheManager.has(cacheOptions)) {
       candlesHistory = await cacheManager.load(cacheOptions);
     } else {
+      // load if not in cache
       candlesHistory = await marketService.getCandles({
         instrumentFigi,
         from: new Date(from),
@@ -83,12 +88,19 @@ export class Backtester {
     });
   }
 
+  /**
+   * Запускает иммитацию биржи. Поочередно проходит
+   * по каждой свече, проверяет предикт стратегии и в случае сигнала, отправляет его
+   * ресиверу. Ресивер в свою очередь будет получать сигналы к TP и SL,
+   * с помощью иммитации биржы
+   */
   async run(options: IBacktesterRunOptions) {
     const { instrumentFigi, candleInterval, candlesHistory, marketDataStream } =
       this.config;
     const { strategy, signalReceiver } = options;
 
     const candlesForApply = strategy.getMinimalCandlesNumberToApply();
+
     for (
       let i = candlesForApply;
       i <= candlesHistory.length - candlesForApply;
