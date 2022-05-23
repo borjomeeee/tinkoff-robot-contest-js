@@ -1,3 +1,4 @@
+import { SerializableError } from "../Helpers/Exceptions";
 import { IStockMarketRobotStrategySignal } from "../StockMarketRobotTypes";
 
 export enum SignalRealizationErrorReason {
@@ -7,7 +8,7 @@ export enum SignalRealizationErrorReason {
 }
 export interface ISignalRealizationError {
   reason: SignalRealizationErrorReason;
-  msg: string;
+  error: string;
 }
 
 export enum SignalRealizationStatus {
@@ -52,11 +53,11 @@ export class SignalRealization implements ISignalRealization {
     }
   }
 
-  handleError(reason: SignalRealizationErrorReason, msg: string) {
+  handleError(reason: SignalRealizationErrorReason, error: Error) {
     this.status = SignalRealizationStatus.FAILED;
     this.error = {
       reason,
-      msg,
+      error: error.message,
     };
   }
 }

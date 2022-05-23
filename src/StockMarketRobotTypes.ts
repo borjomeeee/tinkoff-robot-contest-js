@@ -1,5 +1,5 @@
 import { Candle, CandleInterval } from "./Types/Common";
-import { StrategyPredictAction } from "./Types/Strategy";
+import { MayBePromise, StrategyPredictAction } from "./Types/Strategy";
 
 export interface IStockMarketRobotStrategySignal {
   // Strategy info
@@ -27,8 +27,8 @@ export interface IStockMarketRobotStartOptions {
 
 export interface IStockMarketRobotStrategySignalReceiverOptions {}
 export interface IStockMarketRobotStrategySignalReceiver {
-  receive: (signalInfo: IStockMarketRobotStrategySignal) => void;
+  receive: (signalInfo: IStockMarketRobotStrategySignal) => MayBePromise<any>;
 
   // For return some report information
-  finishWork: () => Promise<object>;
+  finishWork: () => MayBePromise<any>;
 }

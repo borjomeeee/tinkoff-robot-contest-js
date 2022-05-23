@@ -51,7 +51,9 @@ export class StockMarketRobot {
   Logger = new Logger();
 
   private terminatable = new Terminatable();
+
   private isRunning = false;
+  private error: Error | null = null;
 
   private makedSignals: Map<string, IStockMarketRobotStrategySignal> =
     new Map();
@@ -208,6 +210,7 @@ export class StockMarketRobot {
       }
     } catch (e) {
       this.Logger.error(this.TAG, `Get error on running bot: ${e.message}`);
+      this.error = this.error;
       throw e;
     }
 
@@ -228,6 +231,7 @@ export class StockMarketRobot {
 
   makeReport() {
     return {
+      error: this.error,
       signals: this.getMakedSignals(),
     };
   }

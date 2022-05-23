@@ -141,22 +141,22 @@ export class SampleSignalResolver
       .catch((e) => {
         this.signalRealizations[signalId].handleError(
           SignalRealizationErrorReason.FATAL,
-          "instrument-load-failed"
+          e
         );
       });
 
     if (!instrument) {
       this.stopProcessingSignal();
-      return;
+      return this.signalRealizations[signalId];
     }
 
     if (!instrument.tradable) {
       this.stopProcessingSignal();
       this.signalRealizations[signalId].handleError(
         SignalRealizationErrorReason.FATAL,
-        "instrument-not-tradable"
+        new Error("instrument not tradable!")
       );
-      return;
+      return this.signalRealizations[signalId];
     }
 
     this.Logger.debug(
@@ -182,7 +182,7 @@ export class SampleSignalResolver
       .catch((e) => {
         this.signalRealizations[signalId].handleError(
           SignalRealizationErrorReason.POST_OPEN_ORDER,
-          e.message
+          e
         );
       })
       .then((openOrder) => {
@@ -194,14 +194,14 @@ export class SampleSignalResolver
       .catch((e) => {
         this.signalRealizations[signalId].handleError(
           SignalRealizationErrorReason.FATAL,
-          e.message
+          e
         );
       });
 
     // If get error on post openOrder
     if (!completedOpenOrder) {
       this.stopProcessingSignal();
-      return;
+      return this.signalRealizations[signalId];
     }
 
     // Wait for resolver gets satisfy price
@@ -211,14 +211,14 @@ export class SampleSignalResolver
     ).catch((e) => {
       this.signalRealizations[signalId].handleError(
         SignalRealizationErrorReason.FATAL,
-        e.message
+        e
       );
     });
 
     // If get error on wait
     if (!stopLossOrTakeProfitPrice) {
       this.stopProcessingSignal();
-      return;
+      return this.signalRealizations[signalId];
     }
 
     // Post closeOrder
@@ -239,7 +239,7 @@ export class SampleSignalResolver
       .catch((e) => {
         this.signalRealizations[signalId].handleError(
           SignalRealizationErrorReason.POST_CLOSE_ORDER,
-          e.message
+          e
         );
       })
       .then((closeOrder) => {
@@ -251,11 +251,12 @@ export class SampleSignalResolver
       .catch((e) => {
         this.signalRealizations[signalId].handleError(
           SignalRealizationErrorReason.FATAL,
-          e.message
+          e
         );
       });
 
     this.stopProcessingSignal();
+    return this.signalRealizations[signalId];
   }
 
   private waitForCanStopLossOrTakeProfit(

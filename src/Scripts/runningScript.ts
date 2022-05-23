@@ -97,6 +97,14 @@ async function main() {
   const instrumentFigi = config.instrumentFigi;
   const candleInterval = candleIntervalFromStr[config.candleInterval];
 
+  // For show debug info (only sample bot)
+  const initialReceive = signalReceiver.receive.bind(signalReceiver);
+  signalReceiver.receive = async (signal) => {
+    const report = await initialReceive(signal);
+    if (report) {
+      console.log(`Signal was realized: ${JSON.stringify(report)}`);
+    }
+  };
   console.log("Start config: ", JSON.stringify(config));
 
   // Wait for complete job or press stop
