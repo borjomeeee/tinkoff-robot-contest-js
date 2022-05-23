@@ -67,8 +67,16 @@ interface IStrategy {
 
 ```
 git clone https://github.com/borjomeeee/tinkoff-robot-contest-js.git
-cd tinkoff-invest-contest-js
+cd tinkoff-robot-contest-js
 yarn
+```
+
+Если у вас компьютер на процессоре M1 и при установке зависимостей появляется ошибка выполнить следующее, после чего заново выполнить команду `yarn && yarn add @tinkoff/invest-js`
+```
+yarn add grpc-tools --ignore-scripts
+pushd node_modules/grpc-tools
+node_modules/.bin/node-pre-gyp install --target_arch=x64
+popd
 ```
 
 Также в корневой папке необходимо создать файл `.env` с контентом
