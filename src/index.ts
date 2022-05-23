@@ -7,8 +7,6 @@ import { Logger, LoggerLevel } from "./Helpers/Logger";
 
 import { StockMarketRobot } from "./StockMarketRobot";
 import { TinkoffApiClient } from "./TinkoffApiClient";
-import { DAY_IN_MS, HOUR_IN_MS, SEC_IN_MS } from "./Helpers/Utils";
-import { open, writeFile } from "node:fs/promises";
 import { Backtester } from "./Backtester";
 import { BacktestingOrdersService } from "./Services/BacktestingOrdersService";
 import { BacktestingMarketDataStream } from "./Services/BacktestingMarketDataStream";
@@ -21,17 +19,17 @@ import { SampleSignalResolver } from "./SignalReceivers/SampleSignalResolver";
 import { IServices } from "./Services/IServices";
 
 import dayjs from "dayjs";
+import { SerializableError } from "./Helpers/Exceptions";
 var customParseFormat = require("dayjs/plugin/customParseFormat");
 dayjs.extend(customParseFormat);
 
 // TODO:
 // - add comments
-// - set starting via config
 
 async function main() {
   if (typeof process.env.TINKOFF_API_TOKEN === "string") {
     const startIsoDate = new Date().toISOString();
-    await Logger.setFilePath(`logs-${startIsoDate}.txt`);
+    // await Logger.setFilePath(`logs-${startIsoDate}.txt`);
 
     const client = new TinkoffApiClient({
       token: process.env.TINKOFF_API_TOKEN,
@@ -56,7 +54,6 @@ async function main() {
 
         lotsPerBet: 1,
         maxConcurrentBets: 1,
-        commission: 0.0003,
 
         takeProfitPercent: 0.2,
         stopLossPercent: 0.2,
@@ -73,22 +70,35 @@ async function main() {
       services
     );
 
-    await marketRobot.run({
-      strategy: new BollingerBandsStrategy({ periods: 20, deviation: 2 }),
+    // await marketRobot.run({
+    //   strategy: new BollingerBandsStrategy({ periods: 20, deviation: 2 }),
 
-      instrumentFigi: Globals.APPL_SPBX_FIGI,
-      candleInterval: CandleInterval.CANDLE_INTERVAL_1_MIN,
+    //   instrumentFigi: Globals.APPL_SPBX_FIGI,
+    //   candleInterval: CandleInterval.CANDLE_INTERVAL_1_MIN,
 
-      terminateAt: Date.now() + HOUR_IN_MS,
-    });
+    //   terminateAt: Date.now() + HOUR_IN_MS,
+    // });
 
-    await signalResolver.finishWork();
-    const signalRealizations = signalResolver.getSignalRealizations();
+    // await signalResolver.finishWork();
+    // const signalRealizations = signalResolver.getSignalRealizations();
 
-    // Save better report
-    const file = await open(`report-${startIsoDate}.json`, "w");
-    writeFile(file, JSON.stringify(signalRealizations));
-    file.close();
+    // // Save better report
+    // const file = await open(`report-${startIsoDate}.json`, "w");
+    // writeFile(file, JSON.stringify(signalRealizations));
+    // file.close();
+
+    // client.instruments.shares({}, (x, y) => {
+    //   if (x) {
+    //     console.log(x);
+    //   }
+
+    //   console.log(
+    //     x,
+    //     y!.instruments.filter((x) => x.ticker === "VTBR")
+    //   );
+    // });
+
+    console.log(new SerializableError("helo", "world").toString());
   }
 }
 
@@ -116,7 +126,6 @@ async function backtest() {
 
         lotsPerBet: 1,
         maxConcurrentBets: 1,
-        commission: 0.0003,
 
         takeProfitPercent: 0.1,
         stopLossPercent: 0.1,
@@ -173,6 +182,6 @@ async function backtest() {
   }
 }
 
-// main();
-backtest();
+main();
+// backtest();
 // fromConfig();

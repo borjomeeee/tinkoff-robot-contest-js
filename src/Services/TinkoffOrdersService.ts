@@ -20,6 +20,11 @@ import {
   PostMarketOrderOptions,
   PostOrderOptions,
 } from "./IOrdersService";
+import {
+  GetAccountOrdersFatalError,
+  GetOrderStateFatalError,
+  PostOrderFatalError,
+} from "../Helpers/Exceptions";
 
 interface ITinkoffOrdersServiceConstructorOptions {
   client: TinkoffApiClient;
@@ -72,11 +77,15 @@ export class TinkoffOrdersService implements IOrdersService {
       ? this.client.sandbox.postSandboxOrder.bind(this.client.sandbox)
       : this.client.orders.postOrder.bind(this.client.orders);
 
-    return await new Promise<UncompletedOrder>((res) => {
+    return await new Promise<UncompletedOrder>((res, rej) => {
       requestFn(request, (e, v) => {
-        if (!e) {
+        try {
+          if (e) {
+            throw e;
+          }
+
           if (!v) {
-            throw new Error("Get undefined order!");
+            throw new Error("Get undefined order response!");
           }
 
           const data = this._parseUncompletedOrder(v, options);
@@ -89,8 +98,8 @@ export class TinkoffOrdersService implements IOrdersService {
           );
 
           res(data);
-        } else {
-          throw e;
+        } catch (e) {
+          rej(new PostOrderFatalError(request, e.message));
         }
       });
     });
@@ -111,11 +120,15 @@ export class TinkoffOrdersService implements IOrdersService {
       ? this.client.sandbox.getSandboxOrderState.bind(this.client.sandbox)
       : this.client.orders.getOrderState.bind(this.client.orders);
 
-    return new Promise<Order>((res) => {
+    return new Promise<Order>((res, rej) => {
       requestFn(request, (e, v) => {
-        if (!e) {
+        try {
+          if (e) {
+            throw e;
+          }
+
           if (!v) {
-            throw new Error("Get undefined order state!");
+            throw new Error("Get undefined order state response!");
           }
 
           const data = this._parseOrder(v, options.accountId);
@@ -127,43 +140,43 @@ export class TinkoffOrdersService implements IOrdersService {
           );
 
           res(data);
-        } else {
-          throw e;
+        } catch (e) {
+          rej(new GetOrderStateFatalError(request, e.message));
         }
       });
     });
   }
 
-  async cancelOrder(options: CancelOrderOptions) {
-    const requestFn = this.isSandbox
-      ? this.client.sandbox.cancelSandboxOrder.bind(this.client.sandbox)
-      : this.client.orders.cancelOrder.bind(this.client.orders);
+  // async cancelOrder(options: CancelOrderOptions) {
+  //   const requestFn = this.isSandbox
+  //     ? this.client.sandbox.cancelSandboxOrder.bind(this.client.sandbox)
+  //     : this.client.orders.cancelOrder.bind(this.client.orders);
 
-    const request: CancelOrderRequest = {
-      accountId: options.accountId,
-      orderId: options.orderId,
-    };
+  //   const request: CancelOrderRequest = {
+  //     accountId: options.accountId,
+  //     orderId: options.orderId,
+  //   };
 
-    this.Logger.debug(
-      this.TAG,
-      `>> Cancel order with params: ${JSON.stringify(options)}`
-    );
+  //   this.Logger.debug(
+  //     this.TAG,
+  //     `>> Cancel order with params: ${JSON.stringify(options)}`
+  //   );
 
-    await new Promise<void>((res) => {
-      requestFn(request, (e, v) => {
-        if (!e) {
-          this.Logger.debug(
-            this.TAG,
-            `<< Cancel order with params: ${JSON.stringify(options)}\nSuccess!`
-          );
+  //   await new Promise<void>((res, rej) => {
+  //     requestFn(request, (e, v) => {
+  //       if (!e) {
+  //         this.Logger.debug(
+  //           this.TAG,
+  //           `<< Cancel order with params: ${JSON.stringify(options)}\nSuccess!`
+  //         );
 
-          res();
-        } else {
-          throw e;
-        }
-      });
-    });
-  }
+  //         res();
+  //       } else {
+  //         rej(e);
+  //       }
+  //     });
+  //   });
+  // }
 
   async getAccountOrders(options: GetAccountOrdersOptions) {
     const { accountId } = options;
@@ -179,9 +192,13 @@ export class TinkoffOrdersService implements IOrdersService {
     );
 
     const request: GetOrdersRequest = { accountId };
-    return await new Promise<Order[]>((res) => {
+    return await new Promise<Order[]>((res, rej) => {
       requestFn(request, (e, v) => {
-        if (!e) {
+        try {
+          if (e) {
+            throw e;
+          }
+
           const data = (v?.orders || []).map((order) =>
             self._parseOrder(order, accountId)
           );
@@ -194,8 +211,8 @@ export class TinkoffOrdersService implements IOrdersService {
           );
 
           res(data);
-        } else {
-          throw e;
+        } catch (e) {
+          rej(new GetAccountOrdersFatalError(request, e.message));
         }
       });
     });

@@ -4,10 +4,9 @@ import {
   IStockMarketRobotStrategySignalReceiver,
 } from "./StockMarketRobotTypes";
 import { Candle, CandleInterval, Instrument, TradingDay } from "./Types/Common";
-import { TerminateError } from "./Helpers/Exceptions";
 import { Globals } from "./Globals";
 import { Logger } from "./Helpers/Logger";
-import { IStrategy, StrategyPredictAction } from "./Types/Strategy";
+import { IStrategy } from "./Types/Strategy";
 import {
   CandleUtils,
   DAY_IN_MS,
@@ -81,7 +80,7 @@ export class StockMarketRobot {
     while (Date.now() < finishTime && this.isRunning) {
       this.Logger.debug(this.TAG, `Start work iteration`);
 
-      const lastCandles = await getLastCandles();
+      let lastCandles = await getLastCandles();
 
       const lastCandle = lastCandles[lastCandles.length - 1];
       const lastCandleCloseTime = lastCandle.time + candleIntervalTime;
@@ -93,6 +92,7 @@ export class StockMarketRobot {
       }
 
       const predictAction = await strategy.predict(lastCandles);
+
       if (predictAction) {
         const signal: IStockMarketRobotStrategySignal = {
           strategy: strategy.toString(),
@@ -121,16 +121,20 @@ export class StockMarketRobot {
       await this.waitForCandleClose(lastCandle, candleIntervalTime);
     }
 
-    function getLastCandles() {
-      return marketService.getLastCandles({
+    async function getLastCandles() {
+      const amount = strategy.getMinimalCandlesNumberToApply();
+      const candles = await marketService.getLastCandles({
         instrumentFigi,
         interval: candleInterval,
 
-        amount: strategy.getMinimalCandlesNumberToApply(),
+        // handle opened candle
+        amount: amount + 1,
 
         // to make sure we have actual data
         from: new Date(Date.now() + candleIntervalTime),
       });
+
+      return candles.filter((candle) => candle.isComplete).slice(-amount);
     }
   }
 
@@ -155,7 +159,9 @@ export class StockMarketRobot {
     if (terminateAt) {
       const remainedToTerminate = terminateAt - Date.now();
       remainedToTerminate > 0 &&
-        this.sleepIfRunning(remainedToTerminate).then(() => this.stop());
+        (await this.sleepIfRunning(remainedToTerminate).then(() =>
+          this.stop()
+        ));
     }
 
     try {
@@ -258,7 +264,8 @@ export class StockMarketRobot {
 
   private waitForCandleClose(candle: Candle, intervalTime: number) {
     // Wait for next candle
-    const nextCandleOpenTime = candle.time + intervalTime - Date.now();
+    const nextCandleOpenTime =
+      intervalTime - (Date.now() - (candle.time + intervalTime));
     if (nextCandleOpenTime > 0) {
       return this.sleepIfRunning(nextCandleOpenTime);
     }
@@ -272,7 +279,7 @@ export class StockMarketRobot {
 
   private async sleepIfRunning(ms: number) {
     if (this.isRunning) {
-      await sleep(ms, this.terminatable);
+      return await sleep(ms, this.terminatable);
     }
   }
 }

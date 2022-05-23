@@ -8,19 +8,18 @@
     }
   },
 
-  "instrumentFigi": "BBG000B9XRY4",
+  "instrumentFigi": "BBG004730ZJ9",
   "candleInterval": "1m",
 
   "signalReceiver": {
     "SampleSignalResolver": {
-      "accountId": "b7291f16-812e-41e6-bf5c-1b211fd2ad5b",
+      "accountId": "2011436587",
       "lotsPerBet": 1,
 
-      "maxConcurrentBets": 1,
-      "commission": 0.0003,
+      "maxConcurrentBets": 3,
 
-      "takeProfitPercent": 0.1,
-      "stopLossPercent": 0.1,
+      "takeProfitPercent": 0.001,
+      "stopLossPercent": 0.001,
 
       "forceCloseOnFinish": false
     }

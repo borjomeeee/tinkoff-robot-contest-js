@@ -29,9 +29,9 @@ export class BollingerBandsStrategy implements IStrategy {
     const { deviation, periods } = this.config;
 
     try {
-      const sma = this._get_sma(candles.slice(-periods, periods), periods);
+      const sma = this._get_sma(candles.slice(-periods), periods);
       const sd = this._get_standart_deviation(
-        candles.slice(-periods, periods),
+        candles.slice(-periods),
         periods,
         sma
       );
@@ -45,7 +45,9 @@ export class BollingerBandsStrategy implements IStrategy {
       } else if (lastCandle.close.lte(lower_bb)) {
         return StrategyPredictAction.SELL;
       }
-    } catch (ignored) {}
+    } catch (ignored) {
+      console.log(ignored.message);
+    }
   }
 
   _get_sma(candles: Candle[], periods: number) {

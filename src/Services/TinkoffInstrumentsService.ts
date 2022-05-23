@@ -10,6 +10,12 @@ import {
   GetInstrumentTradingScheduleOptions,
   IInstrumentsService,
 } from "./IInsrumentsService";
+import {
+  GetInstrumentFatalError,
+  GetTradingScheduleFatalError,
+  InstrumentNotFoundError,
+  TradingScheduleNotFound,
+} from "../Helpers/Exceptions";
 
 let instrumentsCache: Map<string, Instrument> = new Map();
 export class TinkoffInstrumentsService implements IInstrumentsService {
@@ -54,12 +60,17 @@ export class TinkoffInstrumentsService implements IInstrumentsService {
       `>> Get traiding schedule with params: ${JSON.stringify(options)}`
     );
 
-    return await new Promise<TradingSchedule>((res) => {
+    return await new Promise<TradingSchedule>((res, rej) => {
       self.client.instruments.TradingSchedules(request, (e, v) => {
-        if (!e) {
+        try {
+          if (e) {
+            throw e;
+          }
+
           const data = (v?.exchanges || []).map(self._parseTradingSchedule);
           if (data.length === 0) {
-            throw new Error("Get trading schedule empty array!");
+            rej(new TradingScheduleNotFound(exchange));
+            return;
           }
 
           const schedule = data[0];
@@ -72,8 +83,8 @@ export class TinkoffInstrumentsService implements IInstrumentsService {
           );
 
           res(schedule);
-        } else {
-          throw e;
+        } catch (e) {
+          rej(new GetTradingScheduleFatalError(request, e.message));
         }
       });
     });
@@ -87,11 +98,16 @@ export class TinkoffInstrumentsService implements IInstrumentsService {
       `>> Get instrument with params: ${JSON.stringify(request)}`
     );
 
-    return await new Promise<Instrument>((res) => {
+    return await new Promise<Instrument>((res, rej) => {
       self.client.instruments.shareBy(request, (e, v) => {
-        if (!e) {
+        try {
+          if (e) {
+            throw e;
+          }
+
           if (!v?.instrument) {
-            throw new Error(`Get undefined instrument!`);
+            rej(new InstrumentNotFoundError(request));
+            return;
           }
 
           const data: Instrument = self._parseInstrument(v.instrument);
@@ -105,8 +121,8 @@ export class TinkoffInstrumentsService implements IInstrumentsService {
           );
 
           res(data);
-        } else {
-          throw e;
+        } catch (e) {
+          rej(new GetInstrumentFatalError(request, e.message));
         }
       });
     });

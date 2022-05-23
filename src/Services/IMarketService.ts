@@ -1,8 +1,8 @@
-import { Candle, CandleInterval } from "../Types/Common";
+import { HistoricalCandle, CandleInterval } from "../Types/Common";
 
 export interface IMarketService {
-  getCandles(options: GetCandlesOptions): Promise<Candle[]>;
-  getLastCandles(options: GetLastCandlesOptions): Promise<Candle[]>;
+  getCandles(options: GetCandlesOptions): Promise<HistoricalCandle[]>;
+  getLastCandles(options: GetLastCandlesOptions): Promise<HistoricalCandle[]>;
 }
 
 export interface GetCandlesOptions {

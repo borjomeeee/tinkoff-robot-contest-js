@@ -28,8 +28,6 @@ interface ISampleSignalResolverConfig {
   lotsPerBet: number;
   maxConcurrentBets: number;
 
-  commission: number;
-
   takeProfitPercent: number;
   stopLossPercent: number;
 
@@ -54,10 +52,6 @@ export class SampleSignalResolver
 
     if (typeof config.lotsPerBet !== "number" || config.lotsPerBet <= 0) {
       throw new Error("lotsPerBet incorrect or not specified!");
-    }
-
-    if (typeof config.commission !== "number" || config.commission <= 0) {
-      throw new Error("commission incorrect or not specified!");
     }
 
     if (
@@ -268,18 +262,18 @@ export class SampleSignalResolver
     order: CompletedOrder,
     instrumentLot: number
   ) {
-    const { takeProfitPercent, stopLossPercent, commission } = this.config;
+    const { takeProfitPercent, stopLossPercent } = this.config;
     const { marketDataStream } = this.services;
 
     const instrumentPrice = order.totalPrice.div(order.lots).div(instrumentLot);
 
-    const takeProfit = instrumentPrice
-      .plus(instrumentPrice.mul(takeProfitPercent))
-      .mul(1 + commission);
+    const takeProfit = instrumentPrice.plus(
+      instrumentPrice.mul(takeProfitPercent)
+    );
 
-    const stopLoss = instrumentPrice
-      .minus(instrumentPrice.mul(stopLossPercent))
-      .mul(1 + commission);
+    const stopLoss = instrumentPrice.minus(
+      instrumentPrice.mul(stopLossPercent)
+    );
 
     this.Logger.debug(
       this.TAG,
@@ -294,8 +288,7 @@ export class SampleSignalResolver
       let lastPrice = order.totalPrice
         .minus(order.totalCommission)
         .div(order.lots)
-        .div(instrumentLot)
-        .mul(1 + commission);
+        .div(instrumentLot);
 
       if (!this.isWorking) {
         res(lastPrice);
@@ -308,7 +301,7 @@ export class SampleSignalResolver
           figi: order.instrumentFigi,
         },
         async (price) => {
-          lastPrice = price.mul(1 + commission);
+          lastPrice = price;
 
           if (takeProfit.lte(lastPrice) || stopLoss.gte(lastPrice)) {
             this.Logger.debug(

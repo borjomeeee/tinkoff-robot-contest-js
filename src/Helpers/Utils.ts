@@ -5,7 +5,6 @@ import {
   Quotation,
   Timestamp,
 } from "../Types/Common";
-import { TerminateError } from "./Exceptions";
 import { Globals } from "../Globals";
 import { OrderExecutionStatus } from "../Types/Order";
 import { IStockMarketRobotStrategySignal } from "../StockMarketRobotTypes";

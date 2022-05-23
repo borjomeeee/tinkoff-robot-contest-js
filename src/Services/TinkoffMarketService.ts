@@ -14,6 +14,7 @@ import {
   GetLastCandlesOptions,
   IMarketService,
 } from "./IMarketService";
+import { GetCandlesFatalError } from "../Helpers/Exceptions";
 
 export class TinkoffMarketService implements IMarketService {
   TAG = "TinkoffMarketService";
@@ -72,7 +73,10 @@ export class TinkoffMarketService implements IMarketService {
     let cursorDate = to;
 
     if (to.getTime() < from.getTime()) {
-      throw new Error("'to' date must be more than 'from' date!");
+      throw new GetCandlesFatalError(
+        undefined,
+        "'to' date must be more than 'from' date!"
+      );
     }
 
     const candles: Record<string, HistoricalCandle> = {};
@@ -116,9 +120,13 @@ export class TinkoffMarketService implements IMarketService {
       `>> Get candles with params: ${JSON.stringify(options)}`
     );
 
-    return await new Promise<HistoricalCandle[]>((res) => {
+    return await new Promise<HistoricalCandle[]>((res, rej) => {
       self.client.marketData.GetCandles(request, (e, v) => {
-        if (!e) {
+        try {
+          if (e) {
+            throw e;
+          }
+
           const data = (v?.candles || []).map(self._parseHistoricalCandle);
           this.Logger.debug(
             this.TAG,
@@ -128,8 +136,8 @@ export class TinkoffMarketService implements IMarketService {
           );
 
           res(data);
-        } else {
-          throw e;
+        } catch (e) {
+          rej(new GetCandlesFatalError(request, e.message));
         }
       });
     });
