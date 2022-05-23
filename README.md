@@ -57,7 +57,7 @@ interface IStrategy {
 | `periods`   | Количество периодов (свечей) |
 | `deviation` | Стандартное отклонение       |
 
-<br/>Подробнее о стратегии <a href="#">здесь</a>
+<br/>Подробнее о стратегии <a href="https://en.wikipedia.org/wiki/Bollinger_Bands">здесь</a>
 
 <br/>
 
@@ -66,7 +66,7 @@ interface IStrategy {
 Для начала необходимо склонировать данный репозиторий, после чего выполнить команду для установки необходимых зависимостей
 
 ```
-git clone https://github.com/borjomeeee/tinkoff-invest-contest-js.git
+git clone https://github.com/borjomeeee/tinkoff-robot-contest-js.git
 cd tinkoff-invest-contest-js
 yarn
 ```
@@ -89,7 +89,7 @@ TINKOFF_API_TOKEN=SOME_TOKEN
 yarn backtest
 ```
 
-Для настройки параметров бектестинга используется файл <a href="">backtestingConfig.json</a>. Ниже представлен список возможных параметров. Также реализован механизм кеширования исторических свечей
+Для настройки параметров бектестинга используется файл <a href="https://github.com/borjomeeee/tinkoff-robot-contest-js/blob/main/src/Scripts/backtestingConfig.json">backtestingConfig.json</a>. Ниже представлен список возможных параметров. Также реализован механизм кеширования исторических свечей
 
 <br />
 
@@ -129,7 +129,7 @@ yarn backtest
 yarn robot:run
 ```
 
-Для настройки параметров робота используется файл <a href="#">runningConfig.json</a>. Ниже представлен список возможных параметров.
+Для настройки параметров робота используется файл <a href="https://github.com/borjomeeee/tinkoff-robot-contest-js/blob/main/src/Scripts/runningConfig.json">runningConfig.json</a>. Ниже представлен список возможных параметров.
 
 ```
 {

@@ -21,7 +21,7 @@
       "takeProfitPercent": 0.001,
       "stopLossPercent": 0.001,
 
-      "forceCloseOnFinish": false
+      "forceCloseOnFinish": true
     }
   }
 }

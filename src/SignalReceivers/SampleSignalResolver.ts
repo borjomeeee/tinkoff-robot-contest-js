@@ -420,11 +420,15 @@ export class SampleSignalResolver
   }
 
   async finishWork() {
-    if (this.config.forceCloseOnFinish || process.env.isBacktesting) {
-      await this.forceStop();
-    } else {
-      await this.stop();
-    }
+
+    // Because report making error in prod
+    await this.forceStop();
+
+    // if (this.config.forceCloseOnFinish || process.env.isBacktesting) {
+    //   await this.forceStop();
+    // } else {
+    //   await this.stop();
+    // }
 
     return this.signalRealizations;
   }
