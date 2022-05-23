@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "ts-node ./src/index.ts",
+    "instrument": "ts-node ./src/Scripts/instrumentsScript.ts",
     "accounts": "ts-node ./src/Scripts/accountsScript.ts",
     "sandbox:payin": "ts-node ./src/Scripts/payInScript.ts",
     "robot:run": "ts-node ./src/Scripts/runningScript.ts",
