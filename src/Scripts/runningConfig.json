@@ -8,7 +8,7 @@
     }
   },
 
-  "instrumentFigi": "BBG004730N88",
+  "instrumentFigi": "BBG000BCTLF6",
   "candleInterval": "1m",
 
   "signalReceiver": {

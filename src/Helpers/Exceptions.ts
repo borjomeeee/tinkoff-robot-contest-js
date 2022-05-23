@@ -7,8 +7,12 @@ import { TradingSchedulesRequest } from "@tinkoff/invest-js/build/generated/tink
 
 export class SerializableError extends Error {
   protected reason: string;
+  message: string;
+
   constructor(reason: string, message?: string) {
     super(message);
+
+    this.message = `[${reason}] ${message}` || "undef";
     this.reason = reason;
   }
 

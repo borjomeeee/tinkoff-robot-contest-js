@@ -88,18 +88,18 @@ async function main() {
     // writeFile(file, JSON.stringify(signalRealizations));
     // file.close();
 
-    // client.instruments.shares({}, (x, y) => {
-    //   if (x) {
-    //     console.log(x);
-    //   }
+    client.instruments.shares({}, (x, y) => {
+      if (x) {
+        console.log(x);
+      }
 
-    //   console.log(
-    //     x,
-    //     y!.instruments.filter((x) => x.ticker === "VTBR")
-    //   );
-    // });
+      console.log(
+        x,
+        y!.instruments.filter((x) => x.ticker === "BAC")
+      );
+    });
 
-    console.log(new SerializableError("helo", "world").toString());
+    // console.log(new SerializableError("helo", "world").toString());
   }
 }
 

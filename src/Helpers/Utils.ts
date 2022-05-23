@@ -1,5 +1,6 @@
 import Big from "big.js";
 import {
+  AccountStatus,
   CandleInterval,
   OrderDirection,
   Quotation,
@@ -54,9 +55,21 @@ export const WEEK_IN_MS = DAY_IN_MS * 7;
 
 export class QuotationUtils {
   static toBig(quotation: Quotation) {
+    let nanoIsMinus = false;
+    if (quotation.nano < 0) {
+      quotation.nano = -quotation.nano;
+      nanoIsMinus = true;
+    }
+
     const beforeFloatZeros = new Array(9 - quotation.nano.toString().length)
       .fill("0")
       .join("");
+
+    let numStr = `${quotation.units}.${beforeFloatZeros}${quotation.nano}`;
+    if (nanoIsMinus && !numStr.startsWith("-")) {
+      numStr = "-" + numStr;
+    }
+
     return Big(`${quotation.units}.${beforeFloatZeros}${quotation.nano}`);
   }
 
@@ -66,8 +79,13 @@ export class QuotationUtils {
     const bigStr = big.toString();
     const dotIndex = bigStr.indexOf(".");
 
-    const integerPart = dotIndex !== -1 ? bigStr.slice(0, dotIndex) : bigStr;
-    const doublePart = dotIndex !== -1 ? numStr.slice(dotIndex) : "0";
+    let integerPart = dotIndex !== -1 ? bigStr.slice(0, dotIndex) : bigStr;
+    let doublePart = dotIndex !== -1 ? numStr.slice(dotIndex) : "0";
+
+    if (integerPart.startsWith("-")) {
+      integerPart = integerPart.replace("-", "");
+      doublePart = "-" + doublePart;
+    }
 
     const nanoStr =
       doublePart + new Array(9 - doublePart.length).fill("0").join("");
@@ -105,6 +123,32 @@ export class OrdersUtils {
     }
 
     throw new Error("Get not specified direction!");
+  }
+}
+
+export class AccountUtils {
+  static getStatusFromString(statusStr: string) {
+    if (statusStr === "ACCOUNT_STATUS_NEW") {
+      return AccountStatus.NEW;
+    } else if (statusStr === "ACCOUNT_STATUS_OPEN") {
+      return AccountStatus.OPENED;
+    } else if (statusStr === "ACCOUNT_STATUS_CLOSED") {
+      return AccountStatus.CLOSED;
+    }
+
+    return AccountStatus.NOT_SPECIFIED;
+  }
+
+  static getDescrFromStatus(status: AccountStatus) {
+    if (status === AccountStatus.NOT_SPECIFIED) {
+      return "Статус счёта не определён.";
+    } else if (status === AccountStatus.NEW) {
+      return "Новый, в процессе открытия.";
+    } else if (status === AccountStatus.OPENED) {
+      return "Открытый и активный счёт.";
+    } else if (status === AccountStatus.CLOSED) {
+      return "Закрытый счёт.";
+    }
   }
 }
 

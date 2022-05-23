@@ -76,3 +76,32 @@ export interface TradingSchedule {
   exchange: string;
   days: TradingDay[];
 }
+
+export enum AccountStatus {
+  NOT_SPECIFIED,
+  NEW,
+  OPENED,
+  CLOSED,
+}
+
+export interface Account {
+  id: string;
+  name: string;
+  status: AccountStatus;
+}
+
+export interface AccountMarginInfo {
+  portfolio: Big;
+  startMarging: Big;
+  minMarging: Big;
+  sufficiencyLevel: Big;
+  missingFunds: Big;
+}
+
+export interface SandboxAccountPortfolio {
+  totalShares: Big;
+  totalBonds: Big;
+  totalEtf: Big;
+  totalCurrencies: Big;
+  totalFutures: Big;
+}

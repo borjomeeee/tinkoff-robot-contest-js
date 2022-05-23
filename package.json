@@ -4,8 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "start": "ts-node ./src/index.ts",
+    "accounts": "ts-node ./src/Scripts/accountsScript.ts",
+    "sandbox:payin": "ts-node ./src/Scripts/payInScript.ts",
     "robot:run": "ts-node ./src/Scripts/runningScript.ts",
     "backtest": "ts-node ./src/Scripts/backtestingScript.ts",
     "postinstall": "patch-package"
